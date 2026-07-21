@@ -12,6 +12,7 @@ import {
   bar,
   DISPLAYED_PERCENT_LABEL_WIDTH,
   formatDisplayedPercentLabel,
+  formatProRataIndicator,
   formatResetCountdown,
   padLeft,
   padRight,
@@ -64,6 +65,7 @@ export function formatQuotaRowsGrouped(params: {
   errors?: QuotaToastError[];
   percentDisplayMode?: QuotaToastConfig["percentDisplayMode"];
   resetTimeDecimals?: number;
+  showProRataIndicator?: boolean;
   sessionTokens?: SessionTokensData;
 }): string {
   const layout = params.layout ?? { maxWidth: 50, narrowAt: 42, tinyAt: 32 };
@@ -76,8 +78,9 @@ export function formatQuotaRowsGrouped(params: {
     DISPLAYED_PERCENT_LABEL_WIDTH,
     ...(params.entries ?? [])
       .filter((entry) => !isValueEntry(entry))
-      .map((entry) =>
-        formatDisplayedPercentLabel(entry.percentRemaining, params.percentDisplayMode).length,
+      .map(
+        (entry) =>
+          formatDisplayedPercentLabel(entry.percentRemaining, params.percentDisplayMode).length,
       ),
   );
   const barWidth = Math.max(10, maxWidth - separator.length - percentCol);
@@ -141,11 +144,13 @@ export function formatQuotaRowsGrouped(params: {
         );
         const leftText = right ? `${label} ${right}` : label;
         lines.push(
-          (padRight(leftText, leftMax) +
+          (
+            padRight(leftText, leftMax) +
             separator +
             padLeft(value, valueWidth) +
             separator +
-            padLeft(timeStr, timeWidth)).slice(0, maxWidth),
+            padLeft(timeStr, timeWidth)
+          ).slice(0, maxWidth),
         );
         continue;
       }
@@ -155,13 +160,21 @@ export function formatQuotaRowsGrouped(params: {
       // Percent entries
       // Show reset countdown whenever quota is not fully available.
       // (i.e., any usage at all, or depleted)
-      const timeStr =
+      const countdown =
         entry.percentRemaining < 100
           ? formatResetCountdown(entry.resetTimeIso, {
               compactRounded: true,
               decimals: params.resetTimeDecimals,
             })
           : "";
+      // Pro-rata burn-rate indicator is suppressed in tiny layouts, and
+      // dropped when it would force additional label truncation. Otherwise
+      // it is prepended to the reset countdown (e.g. "+25% 5.7d").
+      const proRata =
+        !isTiny && formatProRataIndicator(entry, { enabled: params.showProRataIndicator });
+      const fullTimeStr = proRata && countdown ? `${proRata} ${countdown}` : proRata || countdown;
+      const compactLineWidth = label.length + separator.length + fullTimeStr.length;
+      const timeStr = compactLineWidth <= maxWidth ? fullTimeStr : countdown;
       const displayedPercent = resolveDisplayedPercent(
         entry.percentRemaining,
         params.percentDisplayMode,

@@ -73,8 +73,8 @@ describe("formatQuotaCommand", () => {
         Usage:           9 used | 2026-01 | org=acme-corp | user=alice (resets in 17d)
 
       → [OpenAI] (Pro)
-        5h:              ████████░░░░░░░░░░  42% left (resets in 2h)
-        Weekly:          ███████████████░░░  81% left (resets in 3d)
+        5h:              ████████░░░░░░░░░░  42% left (-2%, resets in 2h)
+        Weekly:          ███████████████░░░  81% left (-38%, resets in 3d)
 
       → [Google Antigravity] (acct)
         Claude:          ████████████░░░░░░  67% left (resets in 3h)

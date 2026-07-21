@@ -135,7 +135,11 @@ function cloneCliConfig(config: QuotaToastConfig): QuotaToastConfig {
   };
 }
 
-function resolveCliRoots(cwd: string): { workspaceRoot: string; configRoot: string; fallbackDirectory: string } {
+function resolveCliRoots(cwd: string): {
+  workspaceRoot: string;
+  configRoot: string;
+  fallbackDirectory: string;
+} {
   const fallbackDirectory = resolve(cwd);
   const worktreeRoot = findGitWorktreeRoot(fallbackDirectory) ?? fallbackDirectory;
   const configRoot = getEffectiveConfigRoot(worktreeRoot);
@@ -321,6 +325,7 @@ export async function runCliShowCommand(options: RunCliShowCommandOptions = {}):
       style: resolveQuotaFormatStyle(config.formatStyle),
       percentDisplayMode: config.percentDisplayMode,
       resetTimeDecimals: config.resetTimeDecimals,
+      showProRataIndicator: config.showProRataIndicator,
     });
 
     if (!output.trim()) {

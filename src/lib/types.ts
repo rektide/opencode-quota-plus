@@ -17,10 +17,7 @@ export type GeminiCliAuthSourceKey =
   | "opencode-gemini-auth"
   | "gemini"
   | "google";
-export type GoogleAgyAuthSourceKey =
-  | "google-agy"
-  | "opencode-agy-auth"
-  | "google-agy-auth";
+export type GoogleAgyAuthSourceKey = "google-agy" | "opencode-agy-auth" | "google-agy-auth";
 export type CursorQuotaPlan = "none" | "pro" | "pro-plus" | "ultra";
 export type PricingSnapshotSource = "auto" | "bundled" | "runtime";
 export type PercentDisplayMode = "remaining" | "used";
@@ -94,6 +91,17 @@ export interface QuotaToastConfig {
    * many decimal places ("5.7d", "1.4h").
    */
   resetTimeDecimals?: number;
+  /**
+   * When true (default), render a signed pro-rata burn-rate indicator next to
+   * the reset countdown for each quota window (e.g. "+25% 5.7d" or "-10% 1.4h").
+   *
+   * The indicator compares actual usage to the linear pro-rata expectation
+   * for the elapsed fraction of the window. Example: a weekly window 25%
+   * elapsed with 50% actual usage shows "+25%" (using 25 percentage points
+   * more than the pro-rata pace). Requires a known window duration
+   * (5h/1h/daily/weekly/monthly/yearly); otherwise nothing is rendered.
+   */
+  showProRataIndicator: boolean;
   minIntervalMs: number;
 
   /** Request timeout in milliseconds for remote provider API calls. */
@@ -181,6 +189,7 @@ export const DEFAULT_CONFIG: QuotaToastConfig = {
   enableToast: true,
   formatStyle: DEFAULT_QUOTA_FORMAT_STYLE,
   percentDisplayMode: "remaining",
+  showProRataIndicator: true,
   minIntervalMs: 300000, // 5 minutes
   requestTimeoutMs: REQUEST_TIMEOUT_MS,
 
@@ -765,17 +774,20 @@ export const GOOGLE_MODEL_KEYS: Record<
 > = {
   G3PRO: {
     key: "gemini-3.1-pro",
-    altKey: "gemini-3.1-pro-high|gemini-3.1-pro-low|gemini-3-pro-high|gemini-3-pro-low|gemini-3.5-pro-high|gemini-3.5-pro-low",
+    altKey:
+      "gemini-3.1-pro-high|gemini-3.1-pro-low|gemini-3-pro-high|gemini-3-pro-low|gemini-3.5-pro-high|gemini-3.5-pro-low",
     display: "G3Pro",
   },
   G3FLASH: {
     key: "gemini-3-flash",
-    altKey: "gemini-3-flash-medium|gemini-3-flash-high|gemini-3-flash-low|gemini-3-5-flash-medium|gemini-3-5-flash-high|gemini-3-5-flash-low|gemini-3.5-flash-medium|gemini-3.5-flash-high|gemini-3.5-flash-low",
+    altKey:
+      "gemini-3-flash-medium|gemini-3-flash-high|gemini-3-flash-low|gemini-3-5-flash-medium|gemini-3-5-flash-high|gemini-3-5-flash-low|gemini-3.5-flash-medium|gemini-3.5-flash-high|gemini-3.5-flash-low",
     display: "G3Flash",
   },
   CLAUDE: {
     key: "claude-opus-4-6-thinking",
-    altKey: "claude-opus-4-5-thinking|claude-opus-4-5|claude-sonnet-4-6|claude-sonnet-4-6-thinking|claude-opus-4-6|gemini-claude-sonnet-4-6|gemini-claude-opus-4-6-thinking",
+    altKey:
+      "claude-opus-4-5-thinking|claude-opus-4-5|claude-sonnet-4-6|claude-sonnet-4-6-thinking|claude-opus-4-6|gemini-claude-sonnet-4-6|gemini-claude-opus-4-6-thinking",
     display: "Claude",
   },
   G3IMAGE: { key: "gemini-3-pro-image", display: "G3Image" },

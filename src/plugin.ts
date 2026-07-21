@@ -441,7 +441,10 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
     trigger: string,
     detectedProviderIds: string[],
   ): void {
-    if (!maintainerAnnouncementToastFallback.pending || maintainerAnnouncementToastFallback.inFlight) {
+    if (
+      !maintainerAnnouncementToastFallback.pending ||
+      maintainerAnnouncementToastFallback.inFlight
+    ) {
       return;
     }
 
@@ -879,6 +882,7 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
         style: resolveQuotaFormatStyle(runtimeConfig.formatStyle),
         percentDisplayMode: runtimeConfig.percentDisplayMode,
         resetTimeDecimals: runtimeConfig.resetTimeDecimals,
+        showProRataIndicator: runtimeConfig.showProRataIndicator,
         sessionTokens: data?.sessionTokens,
       });
 
@@ -1097,9 +1101,7 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
           })();
 
       if (fetchResult) {
-        detectedProviderIdsByToastCacheKey.set(toastCacheKey, [
-          ...fetchResult.detectedProviderIds,
-        ]);
+        detectedProviderIdsByToastCacheKey.set(toastCacheKey, [...fetchResult.detectedProviderIds]);
         await reconcileDeferredQuotaRefresh({
           sessionID,
           result: fetchResult,
@@ -1139,7 +1141,9 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
         });
         triggerMaintainerAnnouncementToastFallback(
           trigger,
-          fetchResult?.detectedProviderIds ?? detectedProviderIdsByToastCacheKey.get(toastCacheKey) ?? [],
+          fetchResult?.detectedProviderIds ??
+            detectedProviderIdsByToastCacheKey.get(toastCacheKey) ??
+            [],
         );
         await log("Displayed quota toast", { message, trigger });
       } catch (err) {
@@ -1154,7 +1158,6 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
       }
     }
   }
-
 
   async function buildStatusReport(params: {
     refreshGoogleTokens?: boolean;
@@ -1423,7 +1426,6 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
             providerID: sessionMeta.providerID,
           });
         }
-
       }
 
       if (config.showOnQuestion) {

@@ -10,10 +10,20 @@
 import type { QuotaToastEntry, QuotaToastError, SessionTokensData } from "./entries.js";
 import type { PercentDisplayMode } from "./types.js";
 import { isValueEntry } from "./entries.js";
-import { bar, formatDisplayedPercentLabel, padRight, resolveDisplayedPercent } from "./format-utils.js";
+import {
+  bar,
+  formatDisplayedPercentLabel,
+  formatProRataIndicator,
+  padRight,
+  resolveDisplayedPercent,
+} from "./format-utils.js";
 import { formatGroupedHeader } from "./grouped-header-format.js";
 import { groupQuotaEntries } from "./grouped-entry-normalization.js";
-import { renderPlainTextReport, type ReportDocument, type ReportSection } from "./report-document.js";
+import {
+  renderPlainTextReport,
+  type ReportDocument,
+  type ReportSection,
+} from "./report-document.js";
 import { buildSessionTokenSectionModel } from "./session-tokens-format.js";
 
 /**
@@ -33,7 +43,22 @@ function formatResetsIn(iso?: string): string {
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return "";
   const diffSeconds = (t - Date.now()) / 1000;
-  return ` (resets in ${formatResetTimeSeconds(diffSeconds)})`;
+  return `resets in ${formatResetTimeSeconds(diffSeconds)}`;
+}
+
+/**
+ * Build the parenthesized suffix for a /quota row. The pro-rata burn-rate
+ * indicator (when shown and computable) is placed BEFORE the reset time,
+ * matching the toast/sidebar ordering. Examples:
+ *   "(+25%, resets in 5d)"  – both indicator and reset time
+ *   "(+25%)"                – indicator only
+ *   "(resets in 5d)"        – reset time only
+ *   ""                       – neither
+ */
+function formatEntrySuffix(params: { resetTimeIso?: string; indicator: string }): string {
+  const resetsIn = formatResetsIn(params.resetTimeIso);
+  const parts = [params.indicator, resetsIn].filter(Boolean);
+  return parts.length > 0 ? ` (${parts.join(", ")})` : "";
 }
 
 function getGroupedLeftText(entry: QuotaToastEntry): string {
@@ -48,6 +73,7 @@ function buildQuotaCommandDocument(params: {
   sessionTokens?: SessionTokensData;
   generatedAtMs?: number;
   percentDisplayMode?: PercentDisplayMode;
+  showProRataIndicator?: boolean;
 }): ReportDocument {
   const groups = groupQuotaEntries(params.entries, "quota");
   const normalizedEntries = groups.flatMap((group) => group.entries);
@@ -66,15 +92,17 @@ function buildQuotaCommandDocument(params: {
     for (const row of group.entries) {
       const leftText = getGroupedLeftText(row);
       const labelCol = padRight(leftText, leftCol);
-      const suffix = formatResetsIn(row.resetTimeIso);
 
       if (isValueEntry(row)) {
-        lines.push(`  ${labelCol} ${row.value}${suffix}`);
+        const valueSuffix = formatEntrySuffix({ resetTimeIso: row.resetTimeIso, indicator: "" });
+        lines.push(`  ${labelCol} ${row.value}${valueSuffix}`);
         continue;
       }
 
       const pct = resolveDisplayedPercent(row.percentRemaining, params.percentDisplayMode);
       const pctLabel = formatDisplayedPercentLabel(row.percentRemaining, params.percentDisplayMode);
+      const indicator = formatProRataIndicator(row, { enabled: params.showProRataIndicator });
+      const suffix = formatEntrySuffix({ resetTimeIso: row.resetTimeIso, indicator });
       lines.push(`  ${labelCol} ${bar(pct, barWidth)}  ${pctLabel}${suffix}`);
     }
     return {
@@ -120,6 +148,7 @@ export function formatQuotaCommand(params: {
   sessionTokens?: SessionTokensData;
   generatedAtMs?: number;
   percentDisplayMode?: PercentDisplayMode;
+  showProRataIndicator?: boolean;
 }): string {
   return renderPlainTextReport(buildQuotaCommandDocument(params));
 }

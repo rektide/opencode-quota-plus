@@ -43,10 +43,7 @@ describe("loadConfig", () => {
     workspace.cleanup();
   });
 
-  async function loadSdkConfig(
-    quotaToast: Record<string, unknown>,
-    meta = createLoadConfigMeta(),
-  ) {
+  async function loadSdkConfig(quotaToast: Record<string, unknown>, meta = createLoadConfigMeta()) {
     const config = await loadConfig(
       {
         config: {
@@ -69,7 +66,9 @@ describe("loadConfig", () => {
   it("defaults maintainer announcements config and accepts validated nested overrides", async () => {
     const defaults = await loadSdkConfig({});
     expect(defaults.config.maintainerAnnouncements).toEqual(DEFAULT_CONFIG.maintainerAnnouncements);
-    expect(defaults.config.maintainerAnnouncements).not.toBe(DEFAULT_CONFIG.maintainerAnnouncements);
+    expect(defaults.config.maintainerAnnouncements).not.toBe(
+      DEFAULT_CONFIG.maintainerAnnouncements,
+    );
 
     const explicit = await loadSdkConfig({
       maintainerAnnouncements: {
@@ -421,9 +420,7 @@ describe("loadConfig", () => {
     expect(firstMeta.settingSources.enabledProviders).toBe(
       `${workspaceConfigPath} (experimental.quotaToast)`,
     );
-    expect(firstMeta.paths).toEqual([
-      `${workspaceConfigPath} (experimental.quotaToast)`,
-    ]);
+    expect(firstMeta.paths).toEqual([`${workspaceConfigPath} (experimental.quotaToast)`]);
   });
 
   it("prefers plugin-owned quota settings over legacy experimental.quotaToast", async () => {
@@ -560,9 +557,7 @@ describe("loadConfig", () => {
       `${jsonPath} (experimental.quotaToast)`,
       `${jsoncPath} (experimental.quotaToast)`,
     ]);
-    expect(meta.settingSources.enabledProviders).toBe(
-      `${jsonPath} (experimental.quotaToast)`,
-    );
+    expect(meta.settingSources.enabledProviders).toBe(`${jsonPath} (experimental.quotaToast)`);
     expect(meta.configIssues).toEqual([
       {
         path: `${jsoncPath} (experimental.quotaToast)`,
@@ -646,6 +641,26 @@ describe("loadConfig", () => {
       const rejected = await loadSdkConfig({ resetTimeDecimals: invalid });
       expect(rejected.config.resetTimeDecimals).toBeUndefined();
       expect(rejected.meta.settingSources).not.toHaveProperty("resetTimeDecimals");
+    }
+  });
+
+  it("defaults showProRataIndicator to true and accepts boolean overrides", async () => {
+    const defaults = await loadSdkConfig({});
+    expect(defaults.config.showProRataIndicator).toBe(true);
+
+    const disabled = await loadSdkConfig({ showProRataIndicator: false });
+    expect(disabled.config.showProRataIndicator).toBe(false);
+    expect(disabled.meta.settingSources).toEqual({
+      showProRataIndicator: "client.config.get",
+    });
+
+    const explicitEnabled = await loadSdkConfig({ showProRataIndicator: true });
+    expect(explicitEnabled.config.showProRataIndicator).toBe(true);
+
+    for (const invalid of ["true", 1, 0, null, {}]) {
+      const rejected = await loadSdkConfig({ showProRataIndicator: invalid });
+      expect(rejected.config.showProRataIndicator).toBe(true);
+      expect(rejected.meta.settingSources).not.toHaveProperty("showProRataIndicator");
     }
   });
 
