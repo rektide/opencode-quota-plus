@@ -130,7 +130,7 @@ describe("quota provider trusted auth binding", () => {
     expect(JSON.stringify(disallowed)).not.toContain("other-secret");
   });
 
-  it("falls back only to strict API-key-shaped auth.json for exact providerId", async () => {
+  it("no longer falls back to auth.json now that credentials come from the database", async () => {
     const { readFile } = await import("fs/promises");
     vi.mocked(readFile).mockImplementation(async (path) => {
       if (path === authJson) {
@@ -143,19 +143,7 @@ describe("quota provider trusted auth binding", () => {
     });
 
     const result = await resolveQuotaProviderApiKey(source());
-    expect(result.key).toBe("auth-secret");
-    expect(result.source).toBe("auth.json");
-
-    vi.mocked(readFile).mockImplementation(async (path) => {
-      if (path === authJson) {
-        return JSON.stringify({
-          "provider-one": { type: "oauth", key: "oauth-secret" },
-        });
-      }
-      throw new Error("missing");
-    });
-    const oauth = await resolveQuotaProviderApiKey(source());
-    expect(oauth.key).toBeUndefined();
+    expect(result.key).toBeUndefined();
   });
 
   it("never reads workspace config, SDK config, aliases, or derived env names", async () => {
