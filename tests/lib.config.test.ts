@@ -733,6 +733,26 @@ describe("loadConfig", () => {
     }
   });
 
+  it("defaults showProRataIndicator to true and accepts boolean overrides", async () => {
+    const defaults = await loadSdkConfig({});
+    expect(defaults.config.showProRataIndicator).toBe(true);
+
+    const disabled = await loadSdkConfig({ showProRataIndicator: false });
+    expect(disabled.config.showProRataIndicator).toBe(false);
+    expect(disabled.meta.settingSources).toEqual({
+      showProRataIndicator: "client.config.get",
+    });
+
+    const explicitEnabled = await loadSdkConfig({ showProRataIndicator: true });
+    expect(explicitEnabled.config.showProRataIndicator).toBe(true);
+
+    for (const invalid of ["true", 1, 0, null, {}]) {
+      const rejected = await loadSdkConfig({ showProRataIndicator: invalid });
+      expect(rejected.config.showProRataIndicator).toBe(true);
+      expect(rejected.meta.settingSources).not.toHaveProperty("showProRataIndicator");
+    }
+  });
+
   it("defaults anthropicBinaryPath and trims explicit overrides", async () => {
     const defaults = await loadSdkConfig({});
     expect(defaults.config.anthropicBinaryPath).toBe("claude");

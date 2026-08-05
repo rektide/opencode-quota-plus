@@ -43,6 +43,7 @@ export const QUOTA_TOAST_SETTING_SOURCE_KEYS = [
   "formatStyle",
   "percentDisplayMode",
   "resetTimeDecimals",
+  "showProRataIndicator",
   "minIntervalMs",
   "requestTimeoutMs",
   "debug",
@@ -149,6 +150,7 @@ type ValidatedQuotaToastPatch = {
   formatStyle?: QuotaToastConfig["formatStyle"];
   percentDisplayMode?: PercentDisplayMode;
   resetTimeDecimals?: number;
+  showProRataIndicator?: boolean;
   minIntervalMs?: number;
   requestTimeoutMs?: number;
   debug?: boolean;
@@ -590,6 +592,13 @@ function extractValidatedQuotaToastPatch(
   }
 
   if (
+    hasOwnKey(quotaToastConfig, "showProRataIndicator") &&
+    typeof quotaToastConfig.showProRataIndicator === "boolean"
+  ) {
+    patch.showProRataIndicator = quotaToastConfig.showProRataIndicator;
+  }
+
+  if (
     hasOwnKey(quotaToastConfig, "minIntervalMs") &&
     isPositiveNumber(quotaToastConfig.minIntervalMs)
   ) {
@@ -822,6 +831,11 @@ function applyValidatedQuotaToastPatch(
   if (hasOwnKey(patch, "resetTimeDecimals")) {
     config.resetTimeDecimals = patch.resetTimeDecimals;
     applySettingSource(settingSources, "resetTimeDecimals", sourcePath);
+  }
+
+  if (hasOwnKey(patch, "showProRataIndicator")) {
+    config.showProRataIndicator = patch.showProRataIndicator!;
+    applySettingSource(settingSources, "showProRataIndicator", sourcePath);
   }
 
   if (hasOwnKey(patch, "minIntervalMs")) {

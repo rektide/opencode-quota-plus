@@ -227,6 +227,21 @@ Leave it unset to preserve the default display exactly.
 </details>
 
 <details>
+<summary><strong>Show pro-rata burn-rate indicator</strong></summary>
+
+By default each reset countdown is prefixed with a signed pro-rata delta, for example `+25% 5.7d` or `-10% 1.4h`. The delta compares your actual usage percentage against the linear pro-rata expectation for the elapsed fraction of the window. Example: a weekly window 25% elapsed with 50% actual usage renders `+25%` (using 25 percentage points more than the pro-rata pace). Applies to the Sidebar panel, popup toasts, `/quota`, and `opencode-quota show`.
+
+```jsonc
+{
+  "showProRataIndicator": false,
+}
+```
+
+Set to `false` to render only the reset countdown. The indicator is only shown when the window duration can be inferred from the label/name (5h, 1h, daily, weekly, monthly, yearly, RPM). Monthly and yearly durations are 30-/365-day approximations.
+
+</details>
+
+<details>
 <summary><strong>Change maintainer notices</strong></summary>
 
 ```jsonc
@@ -300,6 +315,7 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `formatStyle`                 | `singleWindow` | Shared quota reset-period display for TUI popup toasts, the Sidebar panel, and Compact status line unless a TUI surface override is set: `singleWindow` shows one reset period per provider; `allWindows` shows all reset periods per provider. Legacy `classic`/`grouped` aliases are still accepted.              |
 | `percentDisplayMode`          | `remaining`    | Shared quota percentage meaning for TUI popup toasts, the Sidebar panel, and `/quota`: `remaining` shows quota left; `used` shows quota consumed.                                                                                                                                                                   |
 | `resetTimeDecimals`           | unset          | Decimal places for compact reset countdowns in popup toasts, the Sidebar panel, and terminal `show`. Accepts integers `0`–`4`; unset preserves the default integer-day and half-hour-step display.                                                                                                                  |
+| `showProRataIndicator`        | `true`         | When `true`, prefix each reset countdown with a signed pro-rata burn-rate delta, for example `+25% 5.7d` (using 25 percentage points more than the linear pro-rata pace). Requires a known window duration (5h/1h/daily/weekly/monthly/yearly/RPM); otherwise omitted.                                             |
 | `onlyCurrentModel`            | `false`        | Filter quota rows to the current model/provider when that session selection can be resolved.                                                                                                                                                                                                                        |
 | `showSessionTokens`           | `true`         | Show the `Session input/output tokens` section when session token data is available. When cached input is present, the section keeps the legacy `in/out` layout and appends cached input in parentheses next to the input amount.                                                                                   |
 | `sessionTokenScope`           | `"current"`    | Choose `current` for the active session only or `tree` for the active session plus recursive descendants/subagents, counted once. Applies to `/quota`, popup toasts, the Sidebar panel, and the compact input line when `showSessionTokens` is enabled. Does not change `/tokens_session` or `/tokens_session_all`. |

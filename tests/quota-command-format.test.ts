@@ -99,8 +99,8 @@ describe("formatQuotaCommand", () => {
         Usage         9 used | 2026-01 | org=acme-corp | user=alice | reset 17d
 
       → [OpenAI] (Pro)
-        5h quota      ████░░░░░░   42% left | reset 2h
-        Week quota    ████████░░   81% left | reset 3d
+        5h quota      ████░░░░░░   42% left | reset 2h (-2%)
+        Week quota    ████████░░   81% left | reset 3d (-38%)
 
       → [Antigravity (acct)]
         Claude        ███████░░░   67% left | reset 3h
@@ -350,8 +350,8 @@ describe("formatQuotaCommand", () => {
     const rows = output.split("\n").filter((line) => line.includes(" | reset "));
 
     expect(rows).toEqual([
-      "  5h quota      ██████░░░░   60% left | 2/5  | reset 5h",
-      "  Day quota     ████████░░   80% left | 2/10 | reset 11h",
+      "  5h quota      ██████░░░░   60% left | 2/5  | reset 5h (+40%)",
+      "  Day quota     ████████░░   80% left | 2/10 | reset 11h (-34%)",
     ]);
     expect(output).not.toContain("```");
     expect(output).not.toMatch(/^## /mu);

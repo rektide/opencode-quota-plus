@@ -893,6 +893,7 @@ export const QuotaToastPlugin: Plugin = async ({ client, directory }) => {
         style: resolveQuotaFormatStyle(runtimeConfig.formatStyle),
         percentDisplayMode: runtimeConfig.percentDisplayMode,
         resetTimeDecimals: runtimeConfig.resetTimeDecimals,
+        showProRataIndicator: runtimeConfig.showProRataIndicator,
         sessionTokens: data?.sessionTokens,
       });
 

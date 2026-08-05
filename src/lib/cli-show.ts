@@ -360,6 +360,7 @@ export async function runCliShowCommand(options: RunCliShowCommandOptions = {}):
       style: resolveQuotaFormatStyle(config.formatStyle),
       percentDisplayMode: config.percentDisplayMode,
       resetTimeDecimals: config.resetTimeDecimals,
+      showProRataIndicator: config.showProRataIndicator,
     });
 
     if (!output.trim()) {
