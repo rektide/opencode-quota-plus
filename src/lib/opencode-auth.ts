@@ -69,7 +69,11 @@ function getCredentialDbPaths(dataDirs: string[]): string[] {
     if (override === ":memory:") return [];
     return [isAbsolute(override) ? override : resolve(dataDirs[0] ?? getOpencodeRuntimeDirs().dataDir, override)];
   }
-  return dataDirs.map((dataDir) => join(dataDir, "opencode-next.db"));
+  return dataDirs.flatMap((dataDir) => [
+    join(dataDir, "opencode.db"),
+    join(dataDir, "opencode-local.db"),
+    join(dataDir, "opencode-next.db"),
+  ]);
 }
 
 function readCredentialDatabase(path: string): AuthData | null {

@@ -14,12 +14,14 @@ afterEach(async () => {
   await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
 });
 
-async function createCredentialDatabase(): Promise<{ dataDir: string; databasePath: string }> {
+async function createCredentialDatabase(
+  filename = "opencode.db",
+): Promise<{ dataDir: string; databasePath: string }> {
   const root = await mkdtemp(join(tmpdir(), "opencode-quota-auth-"));
   temporaryDirectories.push(root);
   const dataDir = join(root, "opencode");
   await mkdir(dataDir, { recursive: true });
-  const databasePath = join(dataDir, "opencode-next.db");
+  const databasePath = join(dataDir, filename);
   const database = new DatabaseSync(databasePath);
   database.exec(`CREATE TABLE credential (
     id TEXT PRIMARY KEY,
@@ -63,6 +65,15 @@ describe("OpenCode auth reader", () => {
     await expect(readAuthFile()).resolves.toMatchObject({
       "github-copilot": { access: "copilot-access", enterpriseUrl: "example.ghe.com" },
       deepseek: { type: "api", key: "deepseek-key" },
+      openai: { access: "openai-access" },
+    });
+  });
+
+  it("reads credentials from a channel-specific OpenCode database", async () => {
+    const { dataDir } = await createCredentialDatabase("opencode-local.db");
+    vi.stubEnv("XDG_DATA_HOME", join(dataDir, ".."));
+
+    await expect(readAuthFile()).resolves.toMatchObject({
       openai: { access: "openai-access" },
     });
   });
