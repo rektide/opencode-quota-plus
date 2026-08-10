@@ -70,9 +70,9 @@ function getCredentialDbPaths(dataDirs: string[]): string[] {
     return [isAbsolute(override) ? override : resolve(dataDirs[0] ?? getOpencodeRuntimeDirs().dataDir, override)];
   }
   return dataDirs.flatMap((dataDir) => [
+    join(dataDir, "opencode-next.db"),
     join(dataDir, "opencode.db"),
     join(dataDir, "opencode-local.db"),
-    join(dataDir, "opencode-next.db"),
   ]);
 }
 

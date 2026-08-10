@@ -16,10 +16,11 @@ afterEach(async () => {
 
 async function createCredentialDatabase(
   filename = "opencode.db",
+  existingDataDir?: string,
 ): Promise<{ dataDir: string; databasePath: string }> {
-  const root = await mkdtemp(join(tmpdir(), "opencode-quota-auth-"));
-  temporaryDirectories.push(root);
-  const dataDir = join(root, "opencode");
+  const root = existingDataDir ? undefined : await mkdtemp(join(tmpdir(), "opencode-quota-auth-"));
+  if (root) temporaryDirectories.push(root);
+  const dataDir = existingDataDir ?? join(root!, "opencode");
   await mkdir(dataDir, { recursive: true });
   const databasePath = join(dataDir, filename);
   const database = new DatabaseSync(databasePath);
@@ -71,6 +72,21 @@ describe("OpenCode auth reader", () => {
 
   it("reads credentials from a channel-specific OpenCode database", async () => {
     const { dataDir } = await createCredentialDatabase("opencode-local.db");
+    vi.stubEnv("XDG_DATA_HOME", join(dataDir, ".."));
+
+    await expect(readAuthFile()).resolves.toMatchObject({
+      openai: { access: "openai-access" },
+    });
+  });
+
+  it("prefers the V2 opencode-next database over release databases", async () => {
+    const { dataDir } = await createCredentialDatabase("opencode-next.db");
+    const { databasePath } = await createCredentialDatabase("opencode.db", dataDir);
+    const database = new DatabaseSync(databasePath);
+    database.prepare("UPDATE credential SET value = ? WHERE integration_id = 'openai'").run(
+      JSON.stringify({ type: "oauth", access: "release-access" }),
+    );
+    database.close();
     vi.stubEnv("XDG_DATA_HOME", join(dataDir, ".."));
 
     await expect(readAuthFile()).resolves.toMatchObject({
