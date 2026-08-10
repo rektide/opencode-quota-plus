@@ -18,6 +18,25 @@ Use this guide only if you want to edit OpenCode files yourself.
 
 Use `.jsonc` files if you want comments. Use `.json` files if another tool requires strict JSON.
 
+## OpenCode V2
+
+V2 loads TUI plugins from the global `~/.config/opencode/cli.json` file:
+
+```jsonc
+{
+  "plugins": ["@slkiser/opencode-quota"],
+}
+```
+
+The package's `./tui` entrypoint supports both hosts: V1 calls its `tui` adapter and V2 calls its
+`setup` adapter. The explicit `@slkiser/opencode-quota/v2/tui` export is also available for tooling
+that supports package subpaths.
+
+The V1 server entrypoint includes a no-op V2 setup adapter. This lets V1 and V2 share an existing
+`opencode.json(c)` without V2 rejecting the V1 plugin definition.
+
+The remaining steps describe V1 configuration. Both versions use the same quota settings file.
+
 ## 1. Add the main plugin
 
 Add OpenCode Quota to `opencode.jsonc` or `opencode.json`. This is required for both TUI and Web:

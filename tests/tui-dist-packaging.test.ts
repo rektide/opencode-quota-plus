@@ -39,14 +39,14 @@ describe("tui dist packaging", () => {
     expect(await exists(distJsx)).toBe(false);
     expect(await exists(distJsxMap)).toBe(false);
 
-    const source = await readFile(distTui, "utf8");
+    const source = await readFile(new URL("../dist/v1/tui.js", import.meta.url), "utf8");
     expect(source).toContain("createComponent");
-    expect(source).toContain('context.ui.slot("sidebar.content"');
-    expect(source).toContain("getQuotaMessage");
-    expect(source).toContain("const plugin");
-    expect(source).toContain("registerQuotaCommands");
+    expect(source).toContain("sidebar_content");
+    expect(source).toContain("loadTuiSessionQuotaSurfaces");
+    expect(source).toContain("const pluginModule");
+    expect(source).toContain("registerQuotaDialogCommands");
     expect(source).toContain("buildQuotaDialogCommandOutput");
-    expect(source).toContain("context.keymap.layer");
+    expect(source).toContain("registerLayer");
     expect(source).not.toContain("jsx-dev-runtime");
   });
 
@@ -56,6 +56,17 @@ describe("tui dist packaging", () => {
     expect(mod.default).toMatchObject({
       id: "@slkiser/opencode-quota",
     });
+    expect(typeof mod.default.tui).toBe("function");
+    expect(typeof mod.default.setup).toBe("function");
+  });
+
+  it("ships a separate V2 TUI module", async () => {
+    const source = await readFile(new URL("../dist/v2/tui.js", import.meta.url), "utf8");
+    expect(source).toContain('context.ui.slot("sidebar.content"');
+    expect(source).toContain("context.keymap.layer");
+
+    const mod = await import("../dist/v2/tui.js");
+    expect(mod.default).toMatchObject({ id: "@slkiser/opencode-quota" });
     expect(typeof mod.default.setup).toBe("function");
   });
 });
