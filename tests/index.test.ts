@@ -7,11 +7,9 @@ const pluginMocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("../src/tui-v2.js", () => ({
+vi.mock("../src/tui.js", () => ({
   default: pluginMocks.tui,
 }));
-
-vi.mock("@opentui/solid/preload", () => ({}));
 
 describe("package entrypoint", () => {
   it("exports the V2 TUI plugin on the default export", async () => {
