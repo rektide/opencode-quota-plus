@@ -24,7 +24,10 @@ type CredentialDatabase = {
   prepare(sql: string): { all(...params: string[]): unknown[] };
 };
 
-type CredentialDatabaseConstructor = new (path: string, options?: Record<string, unknown>) => CredentialDatabase;
+type CredentialDatabaseConstructor = new (
+  path: string,
+  options?: Record<string, unknown>,
+) => CredentialDatabase;
 
 type AuthCacheEntry = {
   timestamp: number;
@@ -70,9 +73,17 @@ function getCredentialDbPaths(dataDirs: string[]): string[] {
   const override = process.env.OPENCODE_DB?.trim();
   if (override) {
     if (override === ":memory:") return [];
-    return [isAbsolute(override) ? override : resolve(dataDirs[0] ?? getOpencodeRuntimeDirs().dataDir, override)];
+    return [
+      isAbsolute(override)
+        ? override
+        : resolve(dataDirs[0] ?? getOpencodeRuntimeDirs().dataDir, override),
+    ];
   }
-  return dataDirs.map((dataDir) => join(dataDir, "opencode.db"));
+  return dataDirs.flatMap((dataDir) => [
+    join(dataDir, "opencode.db"),
+    join(dataDir, "opencode-local.db"),
+    join(dataDir, "opencode-next.db"),
+  ]);
 }
 
 function readCredentialDatabase(path: string): AuthData | null {
@@ -82,12 +93,19 @@ function readCredentialDatabase(path: string): AuthData | null {
   try {
     database = openCredentialDatabase(path);
     const rows = database
-      .prepare("SELECT integration_id, value FROM credential WHERE integration_id IS NOT NULL ORDER BY time_updated DESC, id DESC")
+      .prepare(
+        "SELECT integration_id, value FROM credential WHERE integration_id IS NOT NULL ORDER BY time_updated DESC, id DESC",
+      )
       .all() as Array<{ integration_id?: unknown; value?: unknown }>;
     const auth: Record<string, unknown> = {};
 
     for (const row of rows) {
-      if (typeof row.integration_id !== "string" || typeof row.value !== "string" || row.integration_id in auth) continue;
+      if (
+        typeof row.integration_id !== "string" ||
+        typeof row.value !== "string" ||
+        row.integration_id in auth
+      )
+        continue;
       const value = parseCredentialValue(row.value);
       if (value) auth[row.integration_id] = value;
     }
@@ -102,11 +120,15 @@ function readCredentialDatabase(path: string): AuthData | null {
 
 function openCredentialDatabase(path: string): CredentialDatabase {
   if ("Bun" in globalThis) {
-    const { Database } = runtimeRequire("bun:sqlite") as { Database: CredentialDatabaseConstructor };
+    const { Database } = runtimeRequire("bun:sqlite") as {
+      Database: CredentialDatabaseConstructor;
+    };
     return new Database(path, { readonly: true });
   }
 
-  const { DatabaseSync } = runtimeRequire("node:sqlite") as { DatabaseSync: CredentialDatabaseConstructor };
+  const { DatabaseSync } = runtimeRequire("node:sqlite") as {
+    DatabaseSync: CredentialDatabaseConstructor;
+  };
   return new DatabaseSync(path, { readOnly: true, timeout: 5_000 });
 }
 
