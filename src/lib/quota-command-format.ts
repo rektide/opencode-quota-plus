@@ -13,6 +13,7 @@ import {
   bar,
   formatDisplayedPercentLabel,
   formatLocalCallTimestamp,
+  formatProRataIndicator,
   formatTokenCount,
   padLeft,
   padRight,
@@ -99,12 +100,20 @@ function getCommandMetricLabel(entry: QuotaToastEntry): string {
   return explicit || (isValueEntry(entry) ? "Value" : "Quota");
 }
 
-function formatCommandDetails(entry: QuotaToastEntry, rightWidth: number): string {
-  const right = entry.right?.trim();
-  const reset = formatResetsIn(entry.resetTimeIso).replace(/^ \| resets in /u, "reset ");
-  if (right && reset) return ` | ${padRight(right, rightWidth)} | ${reset}`;
+function formatCommandDetails(params: {
+  entry: QuotaToastEntry;
+  rightWidth: number;
+  indicator: string;
+}): string {
+  const right = params.entry.right?.trim();
+  const reset = formatResetsIn(params.entry.resetTimeIso).replace(/^ \| resets in /u, "reset ");
+  // Append the pro-rata burn-rate indicator to the reset segment when present
+  // (e.g. "reset 2h (-2%)"). Indicator is "" for value entries and unknown
+  // window kinds, so this is a no-op there.
+  const resetSegment = reset && params.indicator ? `${reset} (${params.indicator})` : reset;
+  if (right && resetSegment) return ` | ${padRight(right, params.rightWidth)} | ${resetSegment}`;
   if (right) return ` | ${right}`;
-  if (reset) return ` | ${reset}`;
+  if (resetSegment) return ` | ${resetSegment}`;
   return "";
 }
 
@@ -114,6 +123,7 @@ function buildQuotaCommandDocument(params: {
   sessionTokens?: SessionTokensData;
   generatedAtMs?: number;
   percentDisplayMode?: PercentDisplayMode;
+  showProRataIndicator?: boolean;
 }): ReportDocument {
   const groups = groupQuotaEntries(params.entries, "quota");
 
@@ -122,9 +132,9 @@ function buildQuotaCommandDocument(params: {
     const rightWidth = Math.max(0, ...group.entries.map((row) => row.right?.trim().length ?? 0));
     for (const row of group.entries) {
       const label = padRight(getCommandMetricLabel(row), QUOTA_COMMAND_LABEL_WIDTH);
-      const details = formatCommandDetails(row, rightWidth);
 
       if (isValueEntry(row)) {
+        const details = formatCommandDetails({ entry: row, rightWidth, indicator: "" });
         lines.push(`  ${label}  ${row.value}${details}`);
         continue;
       }
@@ -134,6 +144,8 @@ function buildQuotaCommandDocument(params: {
         row.percentRemaining,
         params.percentDisplayMode,
       );
+      const indicator = formatProRataIndicator(row, { enabled: params.showProRataIndicator });
+      const details = formatCommandDetails({ entry: row, rightWidth, indicator });
       lines.push(
         `  ${label}  ${bar(displayedPercent, QUOTA_COMMAND_BAR_WIDTH)}  ${padLeft(pctLabel, 9)}${details}`,
       );
@@ -200,6 +212,7 @@ export function formatQuotaCommand(params: {
   sessionTokens?: SessionTokensData;
   generatedAtMs?: number;
   percentDisplayMode?: PercentDisplayMode;
+  showProRataIndicator?: boolean;
 }): string {
   return renderPlainTextReport(buildQuotaCommandDocument(params));
 }
