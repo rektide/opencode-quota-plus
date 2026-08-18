@@ -119,6 +119,17 @@ export interface QuotaToastConfig {
    * Unset preserves the default integer-day and half-hour-step display.
    */
   resetTimeDecimals?: number;
+  /**
+   * When true (default), render a signed pro-rata burn-rate indicator next to
+   * the reset countdown for each quota window (e.g. "+25% 5.7d" or "-10% 1.4h").
+   *
+   * The indicator compares actual usage to the linear pro-rata expectation
+   * for the elapsed fraction of the window. Example: a weekly window 25%
+   * elapsed with 50% actual usage shows "+25%" (using 25 percentage points
+   * more than the pro-rata pace). Requires a known window duration
+   * (5h/1h/daily/weekly/monthly/yearly); otherwise nothing is rendered.
+   */
+  showProRataIndicator: boolean;
   minIntervalMs: number;
 
   /** Request timeout in milliseconds for remote provider API calls. */
@@ -228,6 +239,7 @@ export const DEFAULT_CONFIG: QuotaToastConfig = {
   formatStyle: DEFAULT_QUOTA_FORMAT_STYLE,
   percentDisplayMode: "remaining",
   accountingDetail: "summary",
+  showProRataIndicator: true,
   minIntervalMs: 300000, // 5 minutes
   requestTimeoutMs: REQUEST_TIMEOUT_MS,
 

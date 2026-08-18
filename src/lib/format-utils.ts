@@ -206,3 +206,112 @@ export function isResetTimeDecimals(value: unknown): value is number {
     value <= MAX_RESET_TIME_DECIMALS
   );
 }
+
+// =============================================================================
+// Pro-rata burn-rate indicator
+// =============================================================================
+//
+// Renders a signed percentage that compares actual usage against the linear
+// pro-rata expectation for the elapsed fraction of a quota window. The
+// indicator is prepended to the reset countdown (e.g. "+25% 5.7d") so users
+// can see at a glance whether they are burning quota faster or slower than
+// the pace implied by the window's remaining time.
+
+const MS_PER_MINUTE = 60_000;
+const MS_PER_WEEK = 7 * MS_PER_DAY;
+const MS_PER_MONTH_APPROX = 30 * MS_PER_DAY;
+const MS_PER_YEAR_APPROX = 365 * MS_PER_DAY;
+
+/**
+ * Options for `formatProRataIndicator`.
+ */
+export interface FormatProRataIndicatorOptions {
+  /**
+   * Master toggle. When false, always returns "".
+   * Default: true (matches DEFAULT_CONFIG.showProRataIndicator).
+   */
+  enabled?: boolean;
+  /**
+   * Override the "now" timestamp for deterministic tests.
+   * Default: Date.now().
+   */
+  nowMs?: number;
+}
+
+/**
+ * Infer the total duration of a quota window in milliseconds from the
+ * entry's label/name text. Returns null when the window kind cannot be
+ * inferred (e.g. "MCP", "Code Review", or unrecognized strings).
+ *
+ * Order matters: more specific patterns (5h, rolling) are tested before
+ * generic ones (hourly, hour) to avoid mis-classification.
+ *
+ * Monthly and yearly durations are approximations (30 / 365 days). Most
+ * providers align resets to calendar boundaries, but the linear pro-rata
+ * math is close enough for an at-a-glance burn-rate indicator.
+ */
+export function inferWindowDurationMs(params: { label?: string; name?: string }): number | null {
+  const label = params.label?.trim().replace(/:+$/u, "").trim() ?? "";
+  const name = params.name?.trim() ?? "";
+  const text = `${label} ${name}`.toLowerCase();
+
+  if (/\b(?:rpm|per minute|minute|minutes)\b/u.test(text)) return MS_PER_MINUTE;
+  if (/\b(?:rolling|5h|5 h|5-hour|5 hour|five-hour|five hour)\b/u.test(text))
+    return 5 * MS_PER_HOUR;
+  if (/\b(?:hourly|1h|1 h|1-hour|1 hour|hour)\b/u.test(text)) return MS_PER_HOUR;
+  if (/\b(?:daily|1d|1 d|1-day|1 day|day)\b/u.test(text)) return MS_PER_DAY;
+  if (/\b(?:7d|7 d|7-day|7 day|weekly|week)\b/u.test(text)) return MS_PER_WEEK;
+  if (/\b(?:monthly|month)\b/u.test(text)) return MS_PER_MONTH_APPROX;
+  if (/\b(?:yearly|annual|annually|year)\b/u.test(text)) return MS_PER_YEAR_APPROX;
+
+  return null;
+}
+
+/**
+ * Compute and format the pro-rata burn-rate indicator for a quota entry.
+ *
+ * Returns a string like "+25%" / "-10%" / "+0%", or "" when the indicator
+ * is disabled, the window duration is unknown, or the reset time is
+ * missing/invalid.
+ *
+ * Math:
+ *   remainingMs        = resetTime - now           (must be > 0)
+ *   durationMs         = inferred window total
+ *   elapsedMs          = durationMs - remainingMs   (clamped to [0, durationMs])
+ *   expectedUsagePct   = elapsedMs / durationMs * 100
+ *   actualUsagePct     = 100 - percentRemaining
+ *   diffPct            = actualUsagePct - expectedUsagePct
+ *
+ * The returned value is always signed ("+" for non-negative, "-" for
+ * negative) and rounded to the nearest integer percent.
+ */
+export function formatProRataIndicator(
+  entry: { percentRemaining?: number; resetTimeIso?: string; label?: string; name?: string },
+  opts?: FormatProRataIndicatorOptions,
+): string {
+  if (opts?.enabled === false) return "";
+  if (!entry.resetTimeIso) return "";
+  if (entry.percentRemaining === undefined) return "";
+
+  const durationMs = inferWindowDurationMs({ label: entry.label, name: entry.name });
+  if (durationMs === null) return "";
+
+  const resetMs = new Date(entry.resetTimeIso).getTime();
+  if (!Number.isFinite(resetMs)) return "";
+
+  const nowMs =
+    typeof opts?.nowMs === "number" && Number.isFinite(opts.nowMs) ? opts.nowMs : Date.now();
+  const remainingMs = resetMs - nowMs;
+  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return "";
+
+  const elapsedMs = Math.max(0, Math.min(durationMs, durationMs - remainingMs));
+  const expectedUsagePct = (elapsedMs / durationMs) * 100;
+  const actualUsagePct = 100 - entry.percentRemaining;
+  const diffPct = actualUsagePct - expectedUsagePct;
+
+  if (!Number.isFinite(diffPct)) return "";
+
+  const rounded = Math.round(diffPct);
+  const sign = rounded >= 0 ? "+" : "-";
+  return `${sign}${Math.abs(rounded)}%`;
+}
