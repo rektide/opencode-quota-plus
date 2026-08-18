@@ -361,6 +361,7 @@ export async function runCliShowCommand(options: RunCliShowCommandOptions = {}):
       percentDisplayMode: config.percentDisplayMode,
       accountingDetail: config.accountingDetail,
       resetTimeDecimals: config.resetTimeDecimals,
+      showProRataIndicator: config.showProRataIndicator,
     });
 
     if (!output.trim()) {

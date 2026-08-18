@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { formatQuotaRows } from "../src/lib/format.js";
+import { formatProRataIndicator, inferWindowDurationMs } from "../src/lib/format-utils.js";
 import { buildSingleWindowPercentEntryDisplayName } from "../src/lib/quota-entry-display.js";
 import { SESSION_TOKEN_SECTION_HEADING } from "../src/lib/session-tokens-format.js";
 
@@ -362,6 +363,222 @@ describe("formatQuotaRows", () => {
 
     expect(out).toContain("5d");
     expect(out).not.toContain("5.7d");
+  });
+
+  describe("pro-rata burn-rate indicator", () => {
+    it("inferWindowDurationMs maps common window labels to durations", () => {
+      expect(inferWindowDurationMs({ label: "RPM:" })).toBe(60_000);
+      expect(inferWindowDurationMs({ label: "5h:" })).toBe(5 * 3_600_000);
+      expect(inferWindowDurationMs({ name: "rolling" })).toBe(5 * 3_600_000);
+      expect(inferWindowDurationMs({ label: "Hourly:" })).toBe(3_600_000);
+      expect(inferWindowDurationMs({ label: "Daily:" })).toBe(86_400_000);
+      expect(inferWindowDurationMs({ label: "7d:" })).toBe(7 * 86_400_000);
+      expect(inferWindowDurationMs({ name: "Copilot Weekly" })).toBe(7 * 86_400_000);
+      expect(inferWindowDurationMs({ label: "Monthly:" })).toBe(30 * 86_400_000);
+      expect(inferWindowDurationMs({ label: "Yearly:" })).toBe(365 * 86_400_000);
+      expect(inferWindowDurationMs({ label: "MCP:" })).toBeNull();
+      expect(inferWindowDurationMs({ label: "Code Review:" })).toBeNull();
+      expect(inferWindowDurationMs({})).toBeNull();
+    });
+
+    it("prefers 5h over generic hour when both could match", () => {
+      // "5 hour" contains "hour"; the 5h pattern must win.
+      expect(inferWindowDurationMs({ label: "5 hour" })).toBe(5 * 3_600_000);
+      // "1h" matches the hourly pattern but not the 5h pattern.
+      expect(inferWindowDurationMs({ label: "1h" })).toBe(3_600_000);
+    });
+
+    it("formatProRataIndicator returns empty when disabled or missing data", () => {
+      expect(
+        formatProRataIndicator(
+          { percentRemaining: 50, resetTimeIso: "2026-01-01T00:00:00Z", name: "Weekly" },
+          { enabled: false },
+        ),
+      ).toBe("");
+      // Missing resetTimeIso
+      expect(formatProRataIndicator({ percentRemaining: 50, name: "Weekly" })).toBe("");
+      // Unknown window kind
+      expect(
+        formatProRataIndicator(
+          { percentRemaining: 50, resetTimeIso: "2026-01-01T00:00:00Z", name: "MCP" },
+          { nowMs: new Date("2025-12-25T00:00:00Z").getTime() },
+        ),
+      ).toBe("");
+      // Reset already in the past
+      expect(
+        formatProRataIndicator(
+          { percentRemaining: 50, resetTimeIso: "2020-01-01T00:00:00Z", name: "Weekly" },
+          { nowMs: new Date("2026-01-01T00:00:00Z").getTime() },
+        ),
+      ).toBe("");
+    });
+
+    it("returns +25% for the README example (weekly window, 25% elapsed, 50% usage)", () => {
+      // Window: weekly (7d). Started 7d ago, reset is in 75% of 7d.
+      // elapsed = 25%, expected usage = 25%, actual usage = 50%, diff = +25%.
+      const now = new Date("2026-01-15T12:00:00Z").getTime();
+      const weekMs = 7 * 86_400_000;
+      const resetTime = new Date(now + 0.75 * weekMs).toISOString();
+      expect(
+        formatProRataIndicator(
+          { percentRemaining: 50, resetTimeIso: resetTime, name: "Weekly" },
+          { nowMs: now },
+        ),
+      ).toBe("+25%");
+    });
+
+    it("returns negative when actual usage lags pro-rata pace", () => {
+      // Weekly window, 75% elapsed (reset in 25% of 7d), only 10% used.
+      // expected = 75%, actual = 10%, diff = -65%.
+      const now = new Date("2026-01-15T12:00:00Z").getTime();
+      const weekMs = 7 * 86_400_000;
+      const resetTime = new Date(now + 0.25 * weekMs).toISOString();
+      expect(
+        formatProRataIndicator(
+          { percentRemaining: 90, resetTimeIso: resetTime, name: "7d:" },
+          { nowMs: now },
+        ),
+      ).toBe("-65%");
+    });
+
+    it("returns +0% when actual matches pro-rata pace", () => {
+      // Weekly window, 50% elapsed, 50% used.
+      const now = new Date("2026-01-15T12:00:00Z").getTime();
+      const weekMs = 7 * 86_400_000;
+      const resetTime = new Date(now + 0.5 * weekMs).toISOString();
+      expect(
+        formatProRataIndicator(
+          { percentRemaining: 50, resetTimeIso: resetTime, name: "Weekly" },
+          { nowMs: now },
+        ),
+      ).toBe("+0%");
+    });
+
+    it("can exceed 100% when actual usage far outpaces pro-rata", () => {
+      // Weekly window, 10% elapsed, 80% used. expected=10, actual=80, diff=+70%.
+      const now = new Date("2026-01-15T12:00:00Z").getTime();
+      const weekMs = 7 * 86_400_000;
+      const resetTime = new Date(now + 0.9 * weekMs).toISOString();
+      expect(
+        formatProRataIndicator(
+          { percentRemaining: 20, resetTimeIso: resetTime, name: "Weekly" },
+          { nowMs: now },
+        ),
+      ).toBe("+70%");
+    });
+  });
+
+  it("renders pro-rata indicator before reset countdown when showProRataIndicator is true", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));
+
+    // Weekly entry: 25% elapsed, 50% used -> "+25%".
+    // reset is 0.75 * 7d away -> 5.25d -> "5d" with legacy rounding.
+    const resetIso = new Date(
+      new Date("2026-01-15T12:00:00.000Z").getTime() + 0.75 * 7 * 86_400_000,
+    ).toISOString();
+
+    const out = formatQuotaRows({
+      version: "1.0.0",
+      layout: { maxWidth: 50, narrowAt: 42, tinyAt: 32 },
+      showProRataIndicator: true,
+      entries: [
+        {
+          name: "Copilot",
+          group: "Copilot",
+          label: "Weekly:",
+          percentRemaining: 50,
+          resetTimeIso: resetIso,
+        },
+      ],
+    });
+
+    expect(out).toContain("+25%");
+    expect(out).toMatch(/\+25%\s+5d/);
+  });
+
+  it("hides pro-rata indicator when showProRataIndicator is false", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));
+
+    const resetIso = new Date(
+      new Date("2026-01-15T12:00:00.000Z").getTime() + 0.75 * 7 * 86_400_000,
+    ).toISOString();
+
+    const out = formatQuotaRows({
+      version: "1.0.0",
+      layout: { maxWidth: 50, narrowAt: 42, tinyAt: 32 },
+      showProRataIndicator: false,
+      entries: [
+        {
+          name: "Copilot",
+          group: "Copilot",
+          label: "Weekly:",
+          percentRemaining: 50,
+          resetTimeIso: resetIso,
+        },
+      ],
+    });
+
+    expect(out).not.toContain("+25%");
+    expect(out).toContain("5d");
+  });
+
+  it("shows pro-rata indicator in narrow sidebar layout when label is short enough to fit", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));
+
+    // 5h window: 50% elapsed (2.5h), 30% actual usage -> -20% (under pace).
+    // Reset 2.5h away -> "2.5h" with legacy rounding.
+    const resetIso = new Date(
+      new Date("2026-01-15T12:00:00.000Z").getTime() + 0.5 * 5 * 3_600_000,
+    ).toISOString();
+
+    const out = formatQuotaRows({
+      version: "1.0.0",
+      // Sidebar-equivalent width: 36 chars, narrow throughout.
+      layout: { maxWidth: 36, narrowAt: 36, tinyAt: 20 },
+      showProRataIndicator: true,
+      style: "allWindows",
+      entries: [
+        {
+          name: "Provider",
+          group: "Provider",
+          label: "5h:",
+          percentRemaining: 70,
+          resetTimeIso: resetIso,
+        },
+      ],
+    });
+
+    // Short label "5h window" leaves plenty of room; indicator should appear.
+    expect(out).toContain("-20%");
+    expect(out).toMatch(/-20%\s+2\.5h/);
+  });
+
+  it("drops pro-rata indicator in narrow sidebar layout when label would truncate", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));
+
+    // 30-char label + "  +X% 2h" exceeds 36-char width.
+    const resetIso = "2026-01-15T14:00:00.000Z";
+
+    const out = formatQuotaRows({
+      version: "1.0.0",
+      layout: { maxWidth: 36, narrowAt: 36, tinyAt: 20 },
+      showProRataIndicator: true,
+      entries: [
+        {
+          name: "[Copilot] (personal) Monthly",
+          percentRemaining: 50,
+          resetTimeIso: resetIso,
+        },
+      ],
+    });
+
+    // Indicator would force truncation; should be dropped to preserve label.
+    expect(out).not.toMatch(/[+-]\d+%/);
+    expect(out).toContain("[Copilot] (personal) Monthly");
   });
 
   it("normalizes grouped headers in all-window toast output", () => {
@@ -780,7 +997,7 @@ describe("formatQuotaRows", () => {
       ],
     });
 
-    const barLine = out.split("\n").find((line) => line.includes("%"));
+    const barLine = out.split("\n").find((line) => line.includes("█"));
     expect(barLine).toContain("19% used");
     expect(barLine).not.toContain("81% left");
     expect(out).not.toContain("Quota (remaining)");
