@@ -9,6 +9,7 @@ import {
   bar,
   DISPLAYED_PERCENT_LABEL_WIDTH,
   formatDisplayedPercentLabel,
+  formatProRataIndicator,
   formatResetCountdown,
   isResetTimeDecimals,
   padLeft,
@@ -102,6 +103,7 @@ export function formatQuotaRows(params: {
   percentDisplayMode?: QuotaToastConfig["percentDisplayMode"];
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
+  showProRataIndicator?: boolean;
   sessionTokens?: SessionTokensData;
 }): string {
   const styleDefinition = getQuotaFormatStyleDefinition(params.style);
@@ -114,6 +116,7 @@ export function formatQuotaRows(params: {
       percentDisplayMode: params.percentDisplayMode,
       accountingDetail: params.accountingDetail,
       resetTimeDecimals: params.resetTimeDecimals,
+      showProRataIndicator: params.showProRataIndicator,
       sessionTokens: params.sessionTokens,
     });
   }
@@ -155,6 +158,7 @@ export function formatQuotaRows(params: {
     resetIso: string | undefined,
     remaining: number,
     rightSummary?: string,
+    entry?: { percentRemaining: number; resetTimeIso?: string; label?: string; name?: string },
   ) => {
     const displayedPercent = resolveDisplayedPercent(remaining, params.percentDisplayMode);
     const percentLabel = formatDisplayedPercentLabel(remaining, params.percentDisplayMode);
@@ -164,7 +168,7 @@ export function formatQuotaRows(params: {
 
     // Show reset countdown whenever quota is not fully available.
     // (i.e., any usage at all, or depleted)
-    const timeStr =
+    const countdown =
       remaining < 100
         ? formatResetCountdown(resetIso, {
             missing: "-",
@@ -172,6 +176,16 @@ export function formatQuotaRows(params: {
             decimals: params.resetTimeDecimals,
           })
         : "";
+    // Pro-rata burn-rate indicator is suppressed in tiny layouts, and dropped
+    // when it would force additional label truncation. Otherwise it is
+    // prepended to the reset countdown (e.g. "+25% 5.7d" or "-10% 1.4h").
+    const proRata =
+      !isTiny && entry
+        ? formatProRataIndicator(entry, { enabled: params.showProRataIndicator })
+        : "";
+    const fullTimeStr = proRata && countdown ? `${proRata} ${countdown}` : proRata || countdown;
+    const compactLineWidth = leftText.length + separator.length + fullTimeStr.length;
+    const timeStr = compactLineWidth <= maxWidth ? fullTimeStr : countdown;
 
     if (isTiny) {
       // In tiny mode: single line with name + time + percent
@@ -331,6 +345,7 @@ export function formatQuotaRows(params: {
         entry.resetTimeIso,
         interpretation.display.percentRemaining,
         entry.right,
+        entry,
       );
       addBasisLine(interpretation.basis);
     }
