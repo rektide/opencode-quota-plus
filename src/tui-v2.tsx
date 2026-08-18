@@ -29,6 +29,30 @@ type Toast = {
   message: string;
   duration?: number;
 };
+type PromptFooterInput = { sessionID?: string; mode: "normal" | "shell" };
+
+type SlotMap = {
+  app: Record<string, never>;
+  "home.footer": Record<string, never>;
+  "prompt.footer": PromptFooterInput;
+  "prompt.footer.status": PromptFooterInput;
+  "prompt.footer.file": PromptFooterInput;
+  "session.composer.top": { sessionID: string };
+  "sidebar.content": { sessionID: string };
+  "sidebar.footer": { sessionID: string };
+};
+type SlotPath = keyof SlotMap;
+
+type SlotClaim<Path extends SlotPath = SlotPath> = Path extends SlotPath
+  ? { render: (input: SlotMap[Path]) => JSX.Element | null } & (
+      | { prepend: Path; append?: never; before?: never; after?: never; replace?: never }
+      | { append: Path; prepend?: never; before?: never; after?: never; replace?: never }
+      | { before: Path; prepend?: never; append?: never; after?: never; replace?: never }
+      | { after: Path; prepend?: never; append?: never; before?: never; replace?: never }
+      | { replace: Path; prepend?: never; append?: never; before?: never; after?: never }
+    )
+  : never;
+
 type TuiContext = {
   client: unknown;
   data: { on: (event: string, handler: (event: TuiEvent) => void) => () => void };
@@ -48,11 +72,7 @@ type TuiContext = {
     ) => void;
   };
   ui: {
-    slot: (
-      claim:
-        | { append: "app"; render: () => null }
-        | { append: "sidebar.content"; render: (props: { sessionID: string }) => JSX.Element },
-    ) => () => void;
+    slot: (claim: SlotClaim) => () => void;
     toast: { show: (toast: Toast) => void };
     dialog: {
       alert: (params: { title: string; message: string }) => Promise<unknown>;
