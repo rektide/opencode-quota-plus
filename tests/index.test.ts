@@ -7,7 +7,7 @@ const pluginMocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("../src/tui-v2.js", () => ({
+vi.mock("../src/tui.js", () => ({
   default: pluginMocks.tui,
 }));
 

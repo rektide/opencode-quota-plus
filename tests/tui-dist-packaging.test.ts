@@ -30,7 +30,7 @@ async function exists(url: URL): Promise<boolean> {
 }
 
 describe("tui dist packaging", () => {
-  it("ships the precompiled TUI entry and removes stale jsx artifacts", async () => {
+  it("ships the precompiled V2 TUI entry and removes stale jsx artifacts", async () => {
     const distTui = new URL("../dist/tui.js", import.meta.url);
     const distJsx = new URL("../dist/tui.jsx", import.meta.url);
     const distJsxMap = new URL("../dist/tui.jsx.map", import.meta.url);
@@ -41,14 +41,11 @@ describe("tui dist packaging", () => {
 
     const source = await readFile(distTui, "utf8");
     expect(source).toContain("createComponent");
-    expect(source).toContain("sidebar_content");
-    expect(source).toContain("loadTuiSessionQuotaSurfaces");
-    expect(source).toContain("resolveTuiSurfaceRegistration");
-    expect(source).toContain("const pluginModule");
-    expect(source).toContain("registerQuotaDialogCommands");
-    expect(source).toContain("CommandOutputDialog");
+    expect(source).toContain("getQuotaMessage");
+    expect(source).toContain("const plugin");
+    expect(source).toContain("registerQuotaCommands");
     expect(source).toContain("buildQuotaDialogCommandOutput");
-    expect(source).toContain("registerLayer");
+    expect(source).toContain("context.keymap.layer");
     expect(source).not.toContain("jsx-dev-runtime");
   });
 
@@ -58,6 +55,6 @@ describe("tui dist packaging", () => {
     expect(mod.default).toMatchObject({
       id: "@slkiser/opencode-quota",
     });
-    expect(typeof mod.default.tui).toBe("function");
+    expect(typeof mod.default.setup).toBe("function");
   });
 });
