@@ -104,7 +104,7 @@ async function getSessionModelMeta(
 
 async function collectQuotaForSession(
   context: TuiContext,
-  sessionID: string,
+  sessionID: string | undefined,
 ): Promise<{
   config: QuotaToastConfig;
   data: QuotaRenderData | undefined;
@@ -235,6 +235,19 @@ async function getSidebarFooterLine(
     ? `Quota · ${activeProviderCount} active · reset ${reset}`
     : `Quota · ${activeProviderCount} active`;
   return sanitizeDisplayText(line);
+}
+
+async function getHomeFooterLine(context: TuiContext): Promise<string | undefined> {
+  const { config, data } = await collectQuotaForSession(context, undefined);
+  const compact = config.tuiCompactStatus;
+  if (!config.enabled || !compact.enabled || !compact.homeBottom) return;
+  if (!data) return;
+  const text = buildCompactQuotaStatusLine({
+    data,
+    percentDisplayMode: config.percentDisplayMode,
+    maxWidth: compact.maxWidth,
+  });
+  return text.trim() ? sanitizeDisplayText(text) : undefined;
 }
 
 function reportFailure(error: unknown): void {
@@ -407,6 +420,27 @@ function SidebarFooterQuotaView(props: {
   );
 }
 
+function HomeFooterQuotaView(props: { context: TuiContext }): JSX.Element | null {
+  const [text, setText] = createSignal<string | undefined>(undefined);
+  const refresh = () => {
+    void getHomeFooterLine(props.context)
+      .then((line) => setText(line))
+      .catch(reportFailure);
+  };
+  refresh();
+  const unsubscribe = props.context.data.on("session.step.ended", () => refresh());
+  onCleanup(unsubscribe);
+  return (
+    <Show when={text()}>
+      {(line: () => string) => (
+        <text fg={terminalForeground} wrapMode="none">
+          {line()}
+        </text>
+      )}
+    </Show>
+  );
+}
+
 const plugin = {
   id: "@slkiser/opencode-quota",
   setup(context: TuiContext) {
@@ -486,12 +520,17 @@ const plugin = {
       append: "sidebar.footer",
       render: (props) => <SidebarFooterQuotaView context={context} sessionID={props.sessionID} />,
     });
+    const disposeHomeFooter = context.ui.slot({
+      append: "home.footer",
+      render: () => <HomeFooterQuotaView context={context} />,
+    });
     return () => {
       disposeEvents?.();
       disposeApp();
       disposeSidebar();
       disposeStatus();
       disposeSidebarFooter();
+      disposeHomeFooter();
     };
   },
 };
