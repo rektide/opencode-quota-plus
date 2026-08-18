@@ -12,13 +12,15 @@ import {
   type QuotaDialogCommandId,
 } from "./lib/quota-dialog-commands.js";
 import { resolveQuotaFormatStyle } from "./lib/quota-format-style.js";
-import { collectQuotaRenderData } from "./lib/quota-render-data.js";
+import { collectQuotaRenderData, type QuotaRenderData } from "./lib/quota-render-data.js";
 import {
   createQuotaRuntimeRequestContext,
   type QuotaSessionModelContext,
   resolveQuotaRuntimeContext,
 } from "./lib/quota-runtime-context.js";
+import { buildCompactQuotaStatusLine } from "./lib/tui-compact-format.js";
 import { buildSidebarQuotaPanelLines } from "./lib/tui-sidebar-format.js";
+import type { QuotaToastConfig } from "./lib/types.js";
 
 const terminalForeground = RGBA.defaultForeground();
 
@@ -100,11 +102,15 @@ async function getSessionModelMeta(
   return model ? { modelID: model.id, providerID: model.providerID } : {};
 }
 
-async function getQuotaMessage(
+async function collectQuotaForSession(
   context: TuiContext,
   sessionID: string,
-  surface: "sidebar" | "idle" | "compacted" | "question",
-): Promise<{ message: string; duration: number; activeProviderCount: number } | undefined> {
+): Promise<{
+  config: QuotaToastConfig;
+  data: QuotaRenderData | undefined;
+  activeProviderCount: number;
+  formatStyle: ReturnType<typeof resolveQuotaFormatStyle>;
+}> {
   const runtime = await resolveQuotaRuntimeContext({
     client: context.client as never,
     roots: { fallbackDirectory: process.cwd() },
@@ -113,6 +119,34 @@ async function getQuotaMessage(
     includeSessionMeta: (config) => config.onlyCurrentModel,
   });
   const config = runtime.config;
+  const formatStyle = resolveQuotaFormatStyle(config.formatStyle);
+  const result = await collectQuotaRenderData({
+    client: runtime.client,
+    resolveRuntimeProviderIds: runtime.resolveRuntimeProviderIds,
+    config,
+    configMeta: runtime.configMeta,
+    request: createQuotaRuntimeRequestContext(runtime),
+    surfaceExplicitProviderIssues: true,
+    formatStyle,
+    providers: runtime.providers,
+  });
+  return {
+    config,
+    data: result.data ?? undefined,
+    activeProviderCount: result.active.length,
+    formatStyle,
+  };
+}
+
+async function getQuotaMessage(
+  context: TuiContext,
+  sessionID: string,
+  surface: "sidebar" | "idle" | "compacted" | "question",
+): Promise<{ message: string; duration: number; activeProviderCount: number } | undefined> {
+  const { config, data, activeProviderCount, formatStyle } = await collectQuotaForSession(
+    context,
+    sessionID,
+  );
   if (!config.enabled) return;
   if (surface === "sidebar") {
     if (!config.tuiSidebarPanel.enabled) return;
@@ -126,19 +160,6 @@ async function getQuotaMessage(
   ) {
     return;
   }
-
-  const formatStyle = resolveQuotaFormatStyle(config.formatStyle);
-  const result = await collectQuotaRenderData({
-    client: runtime.client,
-    resolveRuntimeProviderIds: runtime.resolveRuntimeProviderIds,
-    config,
-    configMeta: runtime.configMeta,
-    request: createQuotaRuntimeRequestContext(runtime),
-    surfaceExplicitProviderIssues: true,
-    formatStyle,
-    providers: runtime.providers,
-  });
-  const data = result.data;
   const message =
     surface === "sidebar"
       ? data
@@ -173,6 +194,22 @@ async function getQuotaMessage(
         activeProviderCount: result.active.length,
       }
     : undefined;
+}
+
+async function getQuotaStatusLine(
+  context: TuiContext,
+  sessionID: string,
+): Promise<string | undefined> {
+  const { config, data } = await collectQuotaForSession(context, sessionID);
+  const compact = config.tuiCompactStatus;
+  if (!config.enabled || !compact.enabled || !compact.sessionPrompt) return;
+  if (!data) return;
+  const text = buildCompactQuotaStatusLine({
+    data,
+    percentDisplayMode: config.percentDisplayMode,
+    maxWidth: compact.maxWidth,
+  });
+  return text.trim() ? sanitizeDisplayText(text) : undefined;
 }
 
 function reportFailure(error: unknown): void {
@@ -296,6 +333,29 @@ function SidebarQuotaView(props: {
   );
 }
 
+function StatusQuotaView(props: { context: TuiContext; sessionID: string }): JSX.Element | null {
+  const [text, setText] = createSignal<string | undefined>(undefined);
+  const refresh = () => {
+    void getQuotaStatusLine(props.context, props.sessionID)
+      .then((line) => setText(line))
+      .catch(reportFailure);
+  };
+  refresh();
+  const unsubscribe = props.context.data.on("session.step.ended", (event) => {
+    if (getSessionID(event) === props.sessionID) refresh();
+  });
+  onCleanup(unsubscribe);
+  return (
+    <Show when={text()}>
+      {(line: () => string) => (
+        <text fg={terminalForeground} wrapMode="none">
+          {line()}
+        </text>
+      )}
+    </Show>
+  );
+}
+
 const plugin = {
   id: "@slkiser/opencode-quota",
   setup(context: TuiContext) {
@@ -366,10 +426,16 @@ const plugin = {
         />
       ),
     });
+    const disposeStatus = context.ui.slot({
+      append: "prompt.footer.status",
+      render: (props) =>
+        props.sessionID ? <StatusQuotaView context={context} sessionID={props.sessionID} /> : null,
+    });
     return () => {
       disposeEvents?.();
       disposeApp();
       disposeSidebar();
+      disposeStatus();
     };
   },
 };
