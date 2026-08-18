@@ -57,7 +57,12 @@ type SlotClaim<Path extends SlotPath = SlotPath> = Path extends SlotPath
 
 type TuiContext = {
   client: unknown;
-  data: { on: (event: string, handler: (event: TuiEvent) => void) => () => void };
+  data: {
+    on: (event: string, handler: (event: TuiEvent) => void) => () => void;
+    session: {
+      get: (sessionID: string) => { model?: { id?: string; providerID?: string } } | undefined;
+    };
+  };
   keymap: {
     layer: (
       build: () => {
@@ -89,7 +94,21 @@ function getSessionID(event: TuiEvent): string | undefined {
   return typeof sessionID === "string" && sessionID ? sessionID : undefined;
 }
 
-async function getSessionModelMeta(
+function getSessionModelMeta(
+  context: TuiContext,
+  sessionID: string,
+): Promise<QuotaSessionModelContext> {
+  const stateModel = context.data.session.get?.(sessionID)?.model;
+  if (stateModel?.id || stateModel?.providerID) {
+    return Promise.resolve({
+      modelID: stateModel.id,
+      providerID: stateModel.providerID,
+    });
+  }
+  return getSessionModelMetaFromClient(context.client, sessionID);
+}
+
+async function getSessionModelMetaFromClient(
   client: unknown,
   sessionID: string,
 ): Promise<QuotaSessionModelContext> {
@@ -115,7 +134,7 @@ async function collectQuotaForSession(
     client: context.client as never,
     roots: { fallbackDirectory: process.cwd() },
     sessionID,
-    resolveSessionMeta: (id) => getSessionModelMeta(context.client, id),
+    resolveSessionMeta: (id) => getSessionModelMeta(context, id),
     includeSessionMeta: (config) => config.onlyCurrentModel,
   });
   const config = runtime.config;
@@ -289,7 +308,7 @@ async function runQuotaCommand(
       client: context.client as never,
       roots: { fallbackDirectory: process.cwd() },
       sessionID,
-      resolveSessionMeta: (id) => getSessionModelMeta(context.client, id),
+      resolveSessionMeta: (id) => getSessionModelMeta(context, id),
     });
     if (result.state === "noop") return;
     const alert = context.ui.dialog.alert({ title: result.title, message: result.output });
