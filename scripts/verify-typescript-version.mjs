@@ -6,9 +6,9 @@ import { parse } from "yaml";
 
 const EXPECTED_TYPESCRIPT_VERSION = "7.0.2";
 const EXPECTED_PLUGIN_VERSION = "1.18.11";
-const EXPECTED_OPENTUI_VERSION = "0.4.5";
+const EXPECTED_OPENTUI_VERSION = "0.5.3";
 const EXPECTED_OPENTUI_PACKAGES = ["@opentui/core", "@opentui/solid"];
-const BUN_FFI_STRUCTS_VERSION = "0.2.4";
+const BUN_FFI_STRUCTS_VERSION = "0.3.1";
 const BUN_FFI_TYPESCRIPT_PEER = "^5";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
