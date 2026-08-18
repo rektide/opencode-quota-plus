@@ -5,5 +5,7 @@ allowBuilds:
   msgpackr-extract: true
 blockExoticSubdeps: true
 minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - "@opentui/*"
 minimumReleaseAgeIgnoreMissingTime: false
 minimumReleaseAgeStrict: true
