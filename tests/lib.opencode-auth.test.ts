@@ -27,10 +27,11 @@ afterEach(async () => {
 
 async function createCredentialDatabase(
   filename = "opencode.db",
+  existingDataDir?: string,
 ): Promise<{ dataDir: string; databasePath: string }> {
-  const root = await mkdtemp(join(tmpdir(), "opencode-quota-auth-"));
-  temporaryDirectories.push(root);
-  const dataDir = join(root, "opencode");
+  const root = existingDataDir ? undefined : await mkdtemp(join(tmpdir(), "opencode-quota-auth-"));
+  if (root) temporaryDirectories.push(root);
+  const dataDir = existingDataDir ?? join(root!, "opencode");
   await mkdir(dataDir, { recursive: true });
   const databasePath = join(dataDir, filename);
   const database = new DatabaseSync(databasePath);
