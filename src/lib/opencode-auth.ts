@@ -80,9 +80,9 @@ function getCredentialDbPaths(dataDirs: string[]): string[] {
     ];
   }
   return dataDirs.flatMap((dataDir) => [
+    join(dataDir, "opencode-next.db"),
     join(dataDir, "opencode.db"),
     join(dataDir, "opencode-local.db"),
-    join(dataDir, "opencode-next.db"),
   ]);
 }
 
