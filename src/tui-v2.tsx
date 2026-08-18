@@ -3,9 +3,9 @@
 import { RGBA } from "@opentui/core";
 import type { JSX } from "@opentui/solid";
 import { createSignal, onCleanup, Show } from "solid-js";
-
 import { sanitizeDisplayText } from "./lib/display-sanitize.js";
 import { formatQuotaRows } from "./lib/format.js";
+import { formatResetCountdown } from "./lib/format-utils.js";
 import {
   buildQuotaDialogCommandOutput,
   QUOTA_DIALOG_COMMANDS,
@@ -191,7 +191,7 @@ async function getQuotaMessage(
     ? {
         message: sanitizeDisplayText(message),
         duration: config.toastDurationMs,
-        activeProviderCount: result.active.length,
+        activeProviderCount,
       }
     : undefined;
 }
@@ -210,6 +210,31 @@ async function getQuotaStatusLine(
     maxWidth: compact.maxWidth,
   });
   return text.trim() ? sanitizeDisplayText(text) : undefined;
+}
+
+async function getSidebarFooterLine(
+  context: TuiContext,
+  sessionID: string,
+): Promise<string | undefined> {
+  const { config, data, activeProviderCount } = await collectQuotaForSession(context, sessionID);
+  if (!config.enabled || !config.tuiSidebarPanel.enabled) return;
+  if (!data) return;
+  const soonestReset = data.entries
+    .map((entry) => entry.resetTimeIso)
+    .filter((iso): iso is string => Boolean(iso))
+    .map((iso) => new Date(iso).getTime())
+    .filter((time) => Number.isFinite(time) && time > Date.now())
+    .sort((a, b) => a - b)[0];
+  const reset = soonestReset
+    ? formatResetCountdown(new Date(soonestReset).toISOString(), {
+        compactRounded: true,
+        decimals: config.resetTimeDecimals,
+      })
+    : undefined;
+  const line = reset
+    ? `Quota · ${activeProviderCount} active · reset ${reset}`
+    : `Quota · ${activeProviderCount} active`;
+  return sanitizeDisplayText(line);
 }
 
 function reportFailure(error: unknown): void {
@@ -356,6 +381,32 @@ function StatusQuotaView(props: { context: TuiContext; sessionID: string }): JSX
   );
 }
 
+function SidebarFooterQuotaView(props: {
+  context: TuiContext;
+  sessionID: string;
+}): JSX.Element | null {
+  const [text, setText] = createSignal<string | undefined>(undefined);
+  const refresh = () => {
+    void getSidebarFooterLine(props.context, props.sessionID)
+      .then((line) => setText(line))
+      .catch(reportFailure);
+  };
+  refresh();
+  const unsubscribe = props.context.data.on("session.step.ended", (event) => {
+    if (getSessionID(event) === props.sessionID) refresh();
+  });
+  onCleanup(unsubscribe);
+  return (
+    <Show when={text()}>
+      {(line: () => string) => (
+        <text fg={terminalForeground} wrapMode="none">
+          {line()}
+        </text>
+      )}
+    </Show>
+  );
+}
+
 const plugin = {
   id: "@slkiser/opencode-quota",
   setup(context: TuiContext) {
@@ -416,11 +467,16 @@ const plugin = {
       render: (props) =>
         props.sessionID ? <StatusQuotaView context={context} sessionID={props.sessionID} /> : null,
     });
+    const disposeSidebarFooter = context.ui.slot({
+      append: "sidebar.footer",
+      render: (props) => <SidebarFooterQuotaView context={context} sessionID={props.sessionID} />,
+    });
     return () => {
       disposeEvents?.();
       disposeApp();
       disposeSidebar();
       disposeStatus();
+      disposeSidebarFooter();
     };
   },
 };

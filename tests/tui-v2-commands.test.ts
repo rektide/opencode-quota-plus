@@ -46,5 +46,37 @@ describe("V2 quota TUI commands", () => {
     expect(context.ui.slot).toHaveBeenCalledWith(
       expect.objectContaining({ append: "sidebar.content" }),
     );
+    expect(context.ui.slot).toHaveBeenCalledWith(
+      expect.objectContaining({ append: "prompt.footer.status" }),
+    );
+    expect(context.ui.slot).toHaveBeenCalledWith(
+      expect.objectContaining({ append: "sidebar.footer" }),
+    );
+  });
+
+  it("renders the compact status line only for a known session", () => {
+    const claims: Array<Record<string, unknown>> = [];
+    const context = {
+      client: {},
+      data: { on: vi.fn(() => vi.fn()) },
+      keymap: { layer: vi.fn() },
+      ui: {
+        slot: vi.fn((claim) => {
+          claims.push(claim);
+          if (claim.append === "app") (claim.render as () => null)();
+          return vi.fn();
+        }),
+        toast: { show: vi.fn() },
+        dialog: { alert: vi.fn(), prompt: vi.fn(), set: vi.fn() },
+      },
+    };
+
+    plugin.setup(context as never);
+
+    const statusClaim = claims.find((claim) => claim.append === "prompt.footer.status") as {
+      render: (input: { sessionID?: string; mode: string }) => unknown;
+    };
+    expect(statusClaim).toBeDefined();
+    expect(statusClaim.render({ mode: "normal" })).toBeNull();
   });
 });
