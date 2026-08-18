@@ -52,6 +52,9 @@ describe("V2 quota TUI commands", () => {
     expect(context.ui.slot).toHaveBeenCalledWith(
       expect.objectContaining({ append: "sidebar.footer" }),
     );
+    expect(context.ui.slot).toHaveBeenCalledWith(
+      expect.objectContaining({ append: "home.footer" }),
+    );
   });
 
   it("renders the compact status line only for a known session", () => {
