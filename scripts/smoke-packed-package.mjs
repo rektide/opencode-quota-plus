@@ -61,8 +61,10 @@ try {
     import { fileURLToPath, pathToFileURL } from "node:url";
 
     const rootExportUrl = import.meta.resolve("@slkiser/opencode-quota");
-    await import("@slkiser/opencode-quota");
+    const root = await import("@slkiser/opencode-quota");
     await import("@slkiser/opencode-quota/server");
+    assert.equal(typeof root.default.server, "function");
+    assert.equal(typeof root.default.setup, "function");
     const { metrics } = await import("@opentelemetry/api");
     assert.equal(typeof metrics.getMeter, "function");
 
@@ -71,9 +73,18 @@ try {
     assert.match(tuiExportPath, /node_modules\\/\\@slkiser\\/opencode-quota\\/dist\\/tui\\.js$/);
     const tuiSource = await readFile(tuiExportPath, "utf8");
     assert.ok(tuiSource.includes("@slkiser/opencode-quota"));
-    assert.ok(tuiSource.includes("const pluginModule"));
-    assert.ok(tuiSource.includes("tui"));
+    assert.ok(tuiSource.includes("v1.tui"));
+    assert.ok(tuiSource.includes("v2.setup"));
     assert.ok(!tuiSource.includes("jsx-dev-runtime"));
+
+    const v2TuiExportUrl = import.meta.resolve("@slkiser/opencode-quota/v2/tui");
+    const v2TuiExportPath = fileURLToPath(v2TuiExportUrl);
+    assert.match(
+      v2TuiExportPath,
+      new RegExp("node_modules/@slkiser/opencode-quota/dist/v2/tui\\.js$"),
+    );
+    const v2TuiSource = await readFile(v2TuiExportPath, "utf8");
+    assert.ok(v2TuiSource.includes("setup(context)"));
 
     const pkg = JSON.parse(
       await readFile("node_modules/@slkiser/opencode-quota/package.json", "utf8"),

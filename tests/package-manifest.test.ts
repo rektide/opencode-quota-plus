@@ -296,6 +296,10 @@ describe("package manifest compatibility", () => {
       default: "./dist/tui.js",
       types: "./dist/tui.d.ts",
     });
+    expect(pkg.exports?.["./v2/tui"]).toEqual({
+      default: "./dist/v2/tui.js",
+      types: "./dist/v2/tui.d.ts",
+    });
   });
 
   it("does not leave stale Crof generated artifacts in active dist", async () => {
@@ -383,13 +387,14 @@ describe("package manifest compatibility", () => {
   });
 
   it("smoke-tests public imports, CLI commands, and the compiled TUI export", () => {
-    expect(packedSmoke).toContain('await import("@slkiser/opencode-quota");');
+    expect(packedSmoke).toContain('const root = await import("@slkiser/opencode-quota");');
     expect(packedSmoke).toContain('await import("@slkiser/opencode-quota/server");');
     expect(packedSmoke).toContain('"opencode-quota init"');
     expect(packedSmoke).toContain('"opencode-quota show"');
     expect(packedSmoke).toContain('"opencode-quota update"');
     expect(packedSmoke).toContain("@slkiser/opencode-quota/tui");
     expect(packedSmoke).toContain('import.meta.resolve("@slkiser/opencode-quota/tui")');
+    expect(packedSmoke).toContain('import.meta.resolve("@slkiser/opencode-quota/v2/tui")');
     expect(packedSmoke).toContain('readFile(tuiExportPath, "utf8")');
     expect(packedSmoke).toContain("dist\\\\/tui\\\\.js");
     expect(packedSmoke).not.toContain('await import("@slkiser/opencode-quota/tui")');
