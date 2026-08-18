@@ -57,7 +57,12 @@ type SlotClaim<Path extends SlotPath = SlotPath> = Path extends SlotPath
 
 type TuiContext = {
   client: unknown;
-  data: { on: (event: string, handler: (event: TuiEvent) => void) => () => void };
+  data: {
+    on: (event: string, handler: (event: TuiEvent) => void) => () => void;
+    session: {
+      get: (sessionID: string) => { model?: { id?: string; providerID?: string } } | undefined;
+    };
+  };
   keymap: {
     layer: (
       build: () => {
@@ -89,7 +94,21 @@ function getSessionID(event: TuiEvent): string | undefined {
   return typeof sessionID === "string" && sessionID ? sessionID : undefined;
 }
 
-async function getSessionModelMeta(
+function getSessionModelMeta(
+  context: TuiContext,
+  sessionID: string,
+): Promise<QuotaSessionModelContext> {
+  const stateModel = context.data.session.get?.(sessionID)?.model;
+  if (stateModel?.id || stateModel?.providerID) {
+    return Promise.resolve({
+      modelID: stateModel.id,
+      providerID: stateModel.providerID,
+    });
+  }
+  return getSessionModelMetaFromClient(context.client, sessionID);
+}
+
+async function getSessionModelMetaFromClient(
   client: unknown,
   sessionID: string,
 ): Promise<QuotaSessionModelContext> {
@@ -104,7 +123,7 @@ async function getSessionModelMeta(
 
 async function collectQuotaForSession(
   context: TuiContext,
-  sessionID: string,
+  sessionID: string | undefined,
 ): Promise<{
   config: QuotaToastConfig;
   data: QuotaRenderData | undefined;
@@ -115,7 +134,7 @@ async function collectQuotaForSession(
     client: context.client as never,
     roots: { fallbackDirectory: process.cwd() },
     sessionID,
-    resolveSessionMeta: (id) => getSessionModelMeta(context.client, id),
+    resolveSessionMeta: (id) => getSessionModelMeta(context, id),
     includeSessionMeta: (config) => config.onlyCurrentModel,
   });
   const config = runtime.config;
@@ -237,6 +256,19 @@ async function getSidebarFooterLine(
   return sanitizeDisplayText(line);
 }
 
+async function getHomeFooterLine(context: TuiContext): Promise<string | undefined> {
+  const { config, data } = await collectQuotaForSession(context, undefined);
+  const compact = config.tuiCompactStatus;
+  if (!config.enabled || !compact.enabled || !compact.homeBottom) return;
+  if (!data) return;
+  const text = buildCompactQuotaStatusLine({
+    data,
+    percentDisplayMode: config.percentDisplayMode,
+    maxWidth: compact.maxWidth,
+  });
+  return text.trim() ? sanitizeDisplayText(text) : undefined;
+}
+
 function reportFailure(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   console.warn(`[opencode-quota] failed to load quota: ${message}`);
@@ -276,7 +308,7 @@ async function runQuotaCommand(
       client: context.client as never,
       roots: { fallbackDirectory: process.cwd() },
       sessionID,
-      resolveSessionMeta: (id) => getSessionModelMeta(context.client, id),
+      resolveSessionMeta: (id) => getSessionModelMeta(context, id),
     });
     if (result.state === "noop") return;
     const alert = context.ui.dialog.alert({ title: result.title, message: result.output });
@@ -407,6 +439,27 @@ function SidebarFooterQuotaView(props: {
   );
 }
 
+function HomeFooterQuotaView(props: { context: TuiContext }): JSX.Element | null {
+  const [text, setText] = createSignal<string | undefined>(undefined);
+  const refresh = () => {
+    void getHomeFooterLine(props.context)
+      .then((line) => setText(line))
+      .catch(reportFailure);
+  };
+  refresh();
+  const unsubscribe = props.context.data.on("session.step.ended", () => refresh());
+  onCleanup(unsubscribe);
+  return (
+    <Show when={text()}>
+      {(line: () => string) => (
+        <text fg={terminalForeground} wrapMode="none">
+          {line()}
+        </text>
+      )}
+    </Show>
+  );
+}
+
 const plugin = {
   id: "@slkiser/opencode-quota",
   setup(context: TuiContext) {
@@ -486,12 +539,17 @@ const plugin = {
       append: "sidebar.footer",
       render: (props) => <SidebarFooterQuotaView context={context} sessionID={props.sessionID} />,
     });
+    const disposeHomeFooter = context.ui.slot({
+      append: "home.footer",
+      render: () => <HomeFooterQuotaView context={context} />,
+    });
     return () => {
       disposeEvents?.();
       disposeApp();
       disposeSidebar();
       disposeStatus();
       disposeSidebarFooter();
+      disposeHomeFooter();
     };
   },
 };
