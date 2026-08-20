@@ -18,6 +18,7 @@ import {
   type QuotaSessionModelContext,
   resolveQuotaRuntimeContext,
 } from "./lib/quota-runtime-context.js";
+import { createTuiV2QuotaClient } from "./lib/tui-v2-client.js";
 import { buildSidebarQuotaPanelLines } from "./lib/tui-sidebar-format.js";
 
 const terminalForeground = RGBA.defaultForeground();
@@ -68,6 +69,18 @@ function getSessionID(event: TuiEvent): string | undefined {
 }
 
 async function getSessionModelMeta(
+/**
+ * Wraps the host client so runtime provider ids resolve across OpenCode TUI
+ * host versions (v2 `provider.list()`, legacy `config.providers()`, or the
+ * file-based CLI resolution). Keeps quota providers that gate on the runtime
+ * provider list reporting even when one host surface is missing or fails.
+ */
+function getQuotaClient(context: TuiContext) {
+  return createTuiV2QuotaClient(context.client, {
+    roots: { fallbackDirectory: process.cwd() },
+  });
+}
+
   client: unknown,
   sessionID: string,
 ): Promise<QuotaSessionModelContext> {
@@ -86,7 +99,7 @@ async function getQuotaMessage(
   surface: "sidebar" | "idle" | "compacted" | "question",
 ): Promise<{ message: string; duration: number; activeProviderCount: number } | undefined> {
   const runtime = await resolveQuotaRuntimeContext({
-    client: context.client as never,
+    client: getQuotaClient(context),
     roots: { fallbackDirectory: process.cwd() },
     sessionID,
     resolveSessionMeta: (id) => getSessionModelMeta(context.client, id),
@@ -191,7 +204,7 @@ async function runQuotaCommand(
     const result = await buildQuotaDialogCommandOutput({
       command,
       arguments: argumentsText,
-      client: context.client as never,
+      client: getQuotaClient(context),
       roots: { fallbackDirectory: process.cwd() },
       sessionID,
       resolveSessionMeta: (id) => getSessionModelMeta(context.client, id),
