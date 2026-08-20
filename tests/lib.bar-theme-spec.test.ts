@@ -217,6 +217,51 @@ describe("resolveBarTheme", () => {
   });
 });
 
+describe("theme spec stack semantics", () => {
+  it("stacks repeated colors: last wins", () => {
+    const resolved = resolveBarTheme(["red", "orange", "teal", "teal"], metrics());
+    expect(resolved.color).toBe("teal");
+    expect(resolved.chars.id).toBe("classic");
+  });
+
+  it("stacks repeated shapes: last wins", () => {
+    const resolved = resolveBarTheme(["squares", "dots", "rings"], metrics());
+    expect(resolved.chars.id).toBe("rings");
+    expect(resolved.color).toBeUndefined();
+  });
+
+  it("merges properties independently: a later shape does not clobber an earlier color", () => {
+    const resolved = resolveBarTheme(["red", "squares", "teal", "dots"], metrics());
+    expect(resolved.chars.id).toBe("dots");
+    expect(resolved.color).toBe("teal");
+  });
+
+  it("stacks per property across matching rules, not wholesale", () => {
+    // Rule 1 contributes only chars; rule 2 contributes only color. Both
+    // match, so the result carries both — neither replaces the other.
+    const resolved = resolveBarTheme(
+      [{ theme: "squares" }, { theme: "red" }],
+      metrics(),
+    );
+    expect(resolved.chars.id).toBe("squares");
+    expect(resolved.color).toBe("red");
+  });
+
+  it("keeps stacking across unconditional strings and conditional rules", () => {
+    const resolved = resolveBarTheme(
+      ["squares", "red", { used: 90 }, "teal"],
+      metrics({ usedPercent: 95 }),
+    );
+    expect(resolved.chars.id).toBe("squares");
+    expect(resolved.color).toBe("teal");
+  });
+
+  it("accepts color-only and shape-only composites in validation", () => {
+    expect(validateBarThemeSpec(["red", "orange", "teal"]).issues).toEqual([]);
+    expect(validateBarThemeSpec(["squares", "dots"]).issues).toEqual([]);
+  });
+});
+
 describe("theme colors", () => {
   it("knows CSS names and hex but not arbitrary strings", () => {
     expect(isThemeColorName("red")).toBe(true);
