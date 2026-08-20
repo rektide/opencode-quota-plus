@@ -158,7 +158,7 @@ export function formatQuotaRows(params: {
     resetIso: string | undefined,
     remaining: number,
     rightSummary?: string,
-    entry?: { percentRemaining: number; resetTimeIso?: string; label?: string; name?: string },
+    entry?: { percentRemaining?: number; resetTimeIso?: string; label?: string; name?: string },
   ) => {
     const displayedPercent = resolveDisplayedPercent(remaining, params.percentDisplayMode);
     const percentLabel = formatDisplayedPercentLabel(remaining, params.percentDisplayMode);
