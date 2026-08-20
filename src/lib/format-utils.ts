@@ -286,11 +286,12 @@ export function inferWindowDurationMs(params: { label?: string; name?: string })
  * negative) and rounded to the nearest integer percent.
  */
 export function formatProRataIndicator(
-  entry: { percentRemaining: number; resetTimeIso?: string; label?: string; name?: string },
+  entry: { percentRemaining?: number; resetTimeIso?: string; label?: string; name?: string },
   opts?: FormatProRataIndicatorOptions,
 ): string {
   if (opts?.enabled === false) return "";
   if (!entry.resetTimeIso) return "";
+  if (entry.percentRemaining === undefined) return "";
 
   const durationMs = inferWindowDurationMs({ label: entry.label, name: entry.name });
   if (durationMs === null) return "";
