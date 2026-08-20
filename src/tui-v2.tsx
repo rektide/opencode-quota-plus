@@ -3,22 +3,25 @@
 import { RGBA } from "@opentui/core";
 import type { JSX } from "@opentui/solid";
 import { createSignal, onCleanup, Show } from "solid-js";
-
 import { sanitizeDisplayText } from "./lib/display-sanitize.js";
 import { formatQuotaRows } from "./lib/format.js";
+import { formatResetCountdown } from "./lib/format-utils.js";
 import {
   buildQuotaDialogCommandOutput,
   QUOTA_DIALOG_COMMANDS,
   type QuotaDialogCommandId,
 } from "./lib/quota-dialog-commands.js";
 import { resolveQuotaFormatStyle } from "./lib/quota-format-style.js";
-import { collectQuotaRenderData } from "./lib/quota-render-data.js";
+import { collectQuotaRenderData, type QuotaRenderData } from "./lib/quota-render-data.js";
 import {
   createQuotaRuntimeRequestContext,
   type QuotaSessionModelContext,
   resolveQuotaRuntimeContext,
 } from "./lib/quota-runtime-context.js";
+import { buildCompactQuotaStatusLine } from "./lib/tui-compact-format.js";
+import { createTuiV2QuotaClient } from "./lib/tui-v2-client.js";
 import { buildSidebarQuotaPanelLines } from "./lib/tui-sidebar-format.js";
+import type { QuotaToastConfig } from "./lib/types.js";
 
 const terminalForeground = RGBA.defaultForeground();
 
@@ -29,9 +32,38 @@ type Toast = {
   message: string;
   duration?: number;
 };
+type PromptFooterInput = { sessionID?: string; mode: "normal" | "shell" };
+
+type SlotMap = {
+  app: Record<string, never>;
+  "home.footer": Record<string, never>;
+  "prompt.footer": PromptFooterInput;
+  "prompt.footer.status": PromptFooterInput;
+  "prompt.footer.file": PromptFooterInput;
+  "session.composer.top": { sessionID: string };
+  "sidebar.content": { sessionID: string };
+  "sidebar.footer": { sessionID: string };
+};
+type SlotPath = keyof SlotMap;
+
+type SlotClaim<Path extends SlotPath = SlotPath> = Path extends SlotPath
+  ? { render: (input: SlotMap[Path]) => JSX.Element | null } & (
+      | { prepend: Path; append?: never; before?: never; after?: never; replace?: never }
+      | { append: Path; prepend?: never; before?: never; after?: never; replace?: never }
+      | { before: Path; prepend?: never; append?: never; after?: never; replace?: never }
+      | { after: Path; prepend?: never; append?: never; before?: never; replace?: never }
+      | { replace: Path; prepend?: never; append?: never; before?: never; after?: never }
+    )
+  : never;
+
 type TuiContext = {
   client: unknown;
-  data: { on: (event: string, handler: (event: TuiEvent) => void) => () => void };
+  data: {
+    on: (event: string, handler: (event: TuiEvent) => void) => () => void;
+    session: {
+      get: (sessionID: string) => { model?: { id?: string; providerID?: string } } | undefined;
+    };
+  };
   keymap: {
     layer: (
       build: () => {
@@ -48,11 +80,7 @@ type TuiContext = {
     ) => void;
   };
   ui: {
-    slot: (
-      claim:
-        | { append: "app"; render: () => null }
-        | { append: "sidebar.content"; render: (props: { sessionID: string }) => JSX.Element },
-    ) => () => void;
+    slot: (claim: SlotClaim) => () => void;
     toast: { show: (toast: Toast) => void };
     dialog: {
       alert: (params: { title: string; message: string }) => Promise<unknown>;
@@ -67,7 +95,33 @@ function getSessionID(event: TuiEvent): string | undefined {
   return typeof sessionID === "string" && sessionID ? sessionID : undefined;
 }
 
-async function getSessionModelMeta(
+/**
+ * Wraps the host client so runtime provider ids resolve across OpenCode TUI
+ * host versions (v2 `provider.list()`, legacy `config.providers()`, or the
+ * file-based CLI resolution). Keeps quota providers that gate on the runtime
+ * provider list reporting even when one host surface is missing or fails.
+ */
+function getQuotaClient(context: TuiContext) {
+  return createTuiV2QuotaClient(context.client, {
+    roots: { fallbackDirectory: process.cwd() },
+  });
+}
+
+function getSessionModelMeta(
+  context: TuiContext,
+  sessionID: string,
+): Promise<QuotaSessionModelContext> {
+  const stateModel = context.data.session.get?.(sessionID)?.model;
+  if (stateModel?.id || stateModel?.providerID) {
+    return Promise.resolve({
+      modelID: stateModel.id,
+      providerID: stateModel.providerID,
+    });
+  }
+  return getSessionModelMetaFromClient(context.client, sessionID);
+}
+
+async function getSessionModelMetaFromClient(
   client: unknown,
   sessionID: string,
 ): Promise<QuotaSessionModelContext> {
@@ -80,19 +134,51 @@ async function getSessionModelMeta(
   return model ? { modelID: model.id, providerID: model.providerID } : {};
 }
 
+async function collectQuotaForSession(
+  context: TuiContext,
+  sessionID: string | undefined,
+): Promise<{
+  config: QuotaToastConfig;
+  data: QuotaRenderData | undefined;
+  activeProviderCount: number;
+  formatStyle: ReturnType<typeof resolveQuotaFormatStyle>;
+}> {
+  const runtime = await resolveQuotaRuntimeContext({
+    client: getQuotaClient(context),
+    roots: { fallbackDirectory: process.cwd() },
+    sessionID,
+    resolveSessionMeta: (id) => getSessionModelMeta(context, id),
+    includeSessionMeta: (config) => config.onlyCurrentModel,
+  });
+  const config = runtime.config;
+  const formatStyle = resolveQuotaFormatStyle(config.formatStyle);
+  const result = await collectQuotaRenderData({
+    client: runtime.client,
+    resolveRuntimeProviderIds: runtime.resolveRuntimeProviderIds,
+    config,
+    configMeta: runtime.configMeta,
+    request: createQuotaRuntimeRequestContext(runtime),
+    surfaceExplicitProviderIssues: true,
+    formatStyle,
+    providers: runtime.providers,
+  });
+  return {
+    config,
+    data: result.data ?? undefined,
+    activeProviderCount: result.active.length,
+    formatStyle,
+  };
+}
+
 async function getQuotaMessage(
   context: TuiContext,
   sessionID: string,
   surface: "sidebar" | "idle" | "compacted" | "question",
 ): Promise<{ message: string; duration: number; activeProviderCount: number } | undefined> {
-  const runtime = await resolveQuotaRuntimeContext({
-    client: context.client as never,
-    roots: { fallbackDirectory: process.cwd() },
+  const { config, data, activeProviderCount, formatStyle } = await collectQuotaForSession(
+    context,
     sessionID,
-    resolveSessionMeta: (id) => getSessionModelMeta(context.client, id),
-    includeSessionMeta: (config) => config.onlyCurrentModel,
-  });
-  const config = runtime.config;
+  );
   if (!config.enabled) return;
   if (surface === "sidebar") {
     if (!config.tuiSidebarPanel.enabled) return;
@@ -106,19 +192,6 @@ async function getQuotaMessage(
   ) {
     return;
   }
-
-  const formatStyle = resolveQuotaFormatStyle(config.formatStyle);
-  const result = await collectQuotaRenderData({
-    client: runtime.client,
-    resolveRuntimeProviderIds: runtime.resolveRuntimeProviderIds,
-    config,
-    configMeta: runtime.configMeta,
-    request: createQuotaRuntimeRequestContext(runtime),
-    surfaceExplicitProviderIssues: true,
-    formatStyle,
-    providers: runtime.providers,
-  });
-  const data = result.data;
   const message =
     surface === "sidebar"
       ? data
@@ -150,9 +223,63 @@ async function getQuotaMessage(
     ? {
         message: sanitizeDisplayText(message),
         duration: config.toastDurationMs,
-        activeProviderCount: result.active.length,
+        activeProviderCount,
       }
     : undefined;
+}
+
+async function getQuotaStatusLine(
+  context: TuiContext,
+  sessionID: string,
+): Promise<string | undefined> {
+  const { config, data } = await collectQuotaForSession(context, sessionID);
+  const compact = config.tuiCompactStatus;
+  if (!config.enabled || !compact.enabled || !compact.sessionPrompt) return;
+  if (!data) return;
+  const text = buildCompactQuotaStatusLine({
+    data,
+    percentDisplayMode: config.percentDisplayMode,
+    maxWidth: compact.maxWidth,
+  });
+  return text.trim() ? sanitizeDisplayText(text) : undefined;
+}
+
+async function getSidebarFooterLine(
+  context: TuiContext,
+  sessionID: string,
+): Promise<string | undefined> {
+  const { config, data, activeProviderCount } = await collectQuotaForSession(context, sessionID);
+  if (!config.enabled || !config.tuiSidebarPanel.enabled) return;
+  if (!data) return;
+  const soonestReset = data.entries
+    .map((entry) => entry.resetTimeIso)
+    .filter((iso): iso is string => Boolean(iso))
+    .map((iso) => new Date(iso).getTime())
+    .filter((time) => Number.isFinite(time) && time > Date.now())
+    .sort((a, b) => a - b)[0];
+  const reset = soonestReset
+    ? formatResetCountdown(new Date(soonestReset).toISOString(), {
+        compactRounded: true,
+        decimals: config.resetTimeDecimals,
+      })
+    : undefined;
+  const line = reset
+    ? `Quota · ${activeProviderCount} active · reset ${reset}`
+    : `Quota · ${activeProviderCount} active`;
+  return sanitizeDisplayText(line);
+}
+
+async function getHomeFooterLine(context: TuiContext): Promise<string | undefined> {
+  const { config, data } = await collectQuotaForSession(context, undefined);
+  const compact = config.tuiCompactStatus;
+  if (!config.enabled || !compact.enabled || !compact.homeBottom) return;
+  if (!data) return;
+  const text = buildCompactQuotaStatusLine({
+    data,
+    percentDisplayMode: config.percentDisplayMode,
+    maxWidth: compact.maxWidth,
+  });
+  return text.trim() ? sanitizeDisplayText(text) : undefined;
 }
 
 function reportFailure(error: unknown): void {
@@ -191,10 +318,10 @@ async function runQuotaCommand(
     const result = await buildQuotaDialogCommandOutput({
       command,
       arguments: argumentsText,
-      client: context.client as never,
+      client: getQuotaClient(context),
       roots: { fallbackDirectory: process.cwd() },
       sessionID,
-      resolveSessionMeta: (id) => getSessionModelMeta(context.client, id),
+      resolveSessionMeta: (id) => getSessionModelMeta(context, id),
     });
     if (result.state === "noop") return;
     const alert = context.ui.dialog.alert({ title: result.title, message: result.output });
@@ -276,6 +403,76 @@ function SidebarQuotaView(props: {
   );
 }
 
+function StatusQuotaView(props: { context: TuiContext; sessionID: string }): JSX.Element | null {
+  const [text, setText] = createSignal<string | undefined>(undefined);
+  const refresh = () => {
+    void getQuotaStatusLine(props.context, props.sessionID)
+      .then((line) => setText(line))
+      .catch(reportFailure);
+  };
+  refresh();
+  const unsubscribe = props.context.data.on("session.step.ended", (event) => {
+    if (getSessionID(event) === props.sessionID) refresh();
+  });
+  onCleanup(unsubscribe);
+  return (
+    <Show when={text()}>
+      {(line: () => string) => (
+        <text fg={terminalForeground} wrapMode="none">
+          {line()}
+        </text>
+      )}
+    </Show>
+  );
+}
+
+function SidebarFooterQuotaView(props: {
+  context: TuiContext;
+  sessionID: string;
+}): JSX.Element | null {
+  const [text, setText] = createSignal<string | undefined>(undefined);
+  const refresh = () => {
+    void getSidebarFooterLine(props.context, props.sessionID)
+      .then((line) => setText(line))
+      .catch(reportFailure);
+  };
+  refresh();
+  const unsubscribe = props.context.data.on("session.step.ended", (event) => {
+    if (getSessionID(event) === props.sessionID) refresh();
+  });
+  onCleanup(unsubscribe);
+  return (
+    <Show when={text()}>
+      {(line: () => string) => (
+        <text fg={terminalForeground} wrapMode="none">
+          {line()}
+        </text>
+      )}
+    </Show>
+  );
+}
+
+function HomeFooterQuotaView(props: { context: TuiContext }): JSX.Element | null {
+  const [text, setText] = createSignal<string | undefined>(undefined);
+  const refresh = () => {
+    void getHomeFooterLine(props.context)
+      .then((line) => setText(line))
+      .catch(reportFailure);
+  };
+  refresh();
+  const unsubscribe = props.context.data.on("session.step.ended", () => refresh());
+  onCleanup(unsubscribe);
+  return (
+    <Show when={text()}>
+      {(line: () => string) => (
+        <text fg={terminalForeground} wrapMode="none">
+          {line()}
+        </text>
+      )}
+    </Show>
+  );
+}
+
 const plugin = {
   id: "@slkiser/opencode-quota",
   setup(context: TuiContext) {
@@ -346,10 +543,26 @@ const plugin = {
         />
       ),
     });
+    const disposeStatus = context.ui.slot({
+      append: "prompt.footer.status",
+      render: (props) =>
+        props.sessionID ? <StatusQuotaView context={context} sessionID={props.sessionID} /> : null,
+    });
+    const disposeSidebarFooter = context.ui.slot({
+      append: "sidebar.footer",
+      render: (props) => <SidebarFooterQuotaView context={context} sessionID={props.sessionID} />,
+    });
+    const disposeHomeFooter = context.ui.slot({
+      append: "home.footer",
+      render: () => <HomeFooterQuotaView context={context} />,
+    });
     return () => {
       disposeEvents?.();
       disposeApp();
       disposeSidebar();
+      disposeStatus();
+      disposeSidebarFooter();
+      disposeHomeFooter();
     };
   },
 };
