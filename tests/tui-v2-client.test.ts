@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -15,9 +15,7 @@ const ORIGINAL_OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
  * Isolates the file-based resolution from this machine's real OpenCode
  * config, credentials, and provider env vars.
  */
-async function withIsolatedFileResolution<T>(
-  run: (base: string) => Promise<T>,
-): Promise<T> {
+async function withIsolatedFileResolution<T>(run: (base: string) => Promise<T>): Promise<T> {
   const base = await mkdtemp(join(tmpdir(), "quota-v2-client-"));
   const previous = {
     xdgConfig: process.env.XDG_CONFIG_HOME,
