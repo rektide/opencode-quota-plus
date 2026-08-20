@@ -138,3 +138,32 @@ V4_HISTORY_REPO=~/tmp-opencode/v4-history \
   ride an inert `app` claim that registers on first render; if the host ever
   publishes a lifecycle-only hook, move registration there and drop the
   `app` claim.
+
+## Addendum: runtime provider ids under v2 (2026-08-19)
+
+Symptom: after upgrading OpenCode to v2, the Z.ai Coding Plan quota stopped
+reporting in the TUI, and the panel showed only
+`OpenRouter: Invalid openrouter-key-v1 response` — as if rendering had
+stopped at the error.
+
+Root cause: v2 replaced the SDK's `client.config.providers()` with
+`client.provider.list()` (`GET /api/provider`, envelope
+`{ location, data: Provider.Info[] }`). `tui-v2.tsx` passed the host client
+through unchanged, so `createRuntimeProviderIdResolver`'s legacy call threw;
+`isCanonicalProviderAvailable` swallowed it and, with `fallbackOnError:
+false`, every provider gated on the runtime list (Z.ai, Zhipu, MiniMax, …)
+was silently marked unavailable. OpenRouter's availability check only looks
+for a configured key (a stale `OPENROUTER_API_KEY` in the shell
+environment), so it alone fetched and failed — leaving an entries-empty
+render where the error row was the only content. The formatters already
+draw entries first and errors last; the bug was upstream of rendering.
+
+Fix: `src/lib/tui-v2-client.ts` adapts the host client into the runtime's
+expected shape, resolving provider ids through a failure-tolerant chain —
+v2 `provider.list()`, legacy `config.providers()`, then the file-based CLI
+resolution (config files + credential stores). Same theme as the session
+meta work: degrade politely, and never let one broken host surface blank
+the report. Verified end to end against the live server list shape (see
+`.test-agent/v2-client-check/`): Z.ai 5h/MCP entries render, with the
+Claude/OpenRouter errors trailing after the working rows.
+
