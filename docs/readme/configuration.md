@@ -118,9 +118,32 @@ Session totals use only the current session by default. To include the current s
 
 This scope applies to the embedded session-token output in `/quota` on Web and TUI, popup toasts, the TUI sidebar, and the compact line below the message input. It does not change `/tokens_session` or `/tokens_session_all`; those commands keep their explicit current-session and session-tree meanings.
 
-### Hide or quiet specific rows
+### Choose the bar glyphs
 
-Some providers report rows you do not care about — an MCP window, a prepaid balance. `hiddenEntries` removes matching rows from every display surface (sidebar, toasts, compact line, `/quota`), and `quietEntries` renders them subdued in the TUI sidebar instead:
+```jsonc
+{
+  "barTheme": "rings",
+}
+```
+
+| Theme | Filled / empty | Quiet filled | Look |
+| --- | --- | --- | --- |
+| `classic` (default) | `█` / `░` | `▓` | `██████████░░░░░░░░░░` |
+| `solid` | `█` / space | `▒` | `██████████          ` |
+| `shade` | `▓` / `░` | `▒` | `▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░` |
+| `soft` | `▒` / `░` | `░` | `▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░` |
+| `smooth` | `█` / `░` | `▓` | `████████▉░░░░░░░░░░░` |
+| `dots` | `●` / `·` | `◐` | `●●●●●●●●●●··········` |
+| `rings` | `●` / `○` | `◐` | `●●●●●●●●●●○○○○○○○○○○` |
+| `squares` | `■` / `□` | `▪` | `■■■■■■■■■■□□□□□□□□□□` |
+| `smol` | `▪` / `·` | `▫` | `▪▪▪▪▪▪▪▪▪▪··········` |
+| `heavy` | `━` / `┄` | `─` | `━━━━━━━━━━┄┄┄┄┄┄┄┄┄┄` |
+| `light` | `─` / `·` | `┄` | `──────────··········` |
+| `halves` | `◐` / `·` | `◑` | `◐◐◐◐◐◐◐◐◐◐··········` |
+
+`smooth` spends the trailing filled cell on partial blocks (`▏▎▍▌▋▊▉`) for sub-cell precision. Note the caveat: a partial-block cell cannot also carry the empty glyph's shade behind it — the sliver draws in the foreground color over plain terminal background, which reads as a notch in a shaded track. It looks most natural with plain-background themes like `solid`. Quiet rows swap the filled glyph for the theme's quieter character, which dims them even on surfaces without per-row color.
+
+### Hide or quiet specific rowsSome providers report rows you do not care about — an MCP window, a prepaid balance. `hiddenEntries` removes matching rows from every display surface (sidebar, toasts, compact line, `/quota`), and `quietEntries` renders them subdued in the TUI sidebar instead:
 
 ```jsonc
 {
@@ -402,6 +425,7 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `accountingDetail`            | `summary`      | Provider-neutral accounting detail across human surfaces: `summary` keeps primary rows; `detailed` also admits supplementary rows and fuller basis detail when width allows. Independent of `formatStyle` and `percentDisplayMode`.                                                                                |
 | `resetTimeDecimals`           | unset          | Decimal places for compact reset countdowns in popup toasts, the Sidebar panel, and terminal `show`. Accepts integers `0`–`4`; unset preserves the default integer-day and half-hour-step display.                                                                                                                  |
 | `showProRataIndicator`        | `true`         | When `true`, prefix each reset countdown with a signed pro-rata burn-rate delta, for example `+25% 5.7d` (using 25 percentage points more than the linear pro-rata pace). Requires a known window duration (5h/1h/daily/weekly/monthly/yearly/RPM); otherwise omitted.                                             |
+| `barTheme`                    | `"classic"`    | Quota bar character theme: `classic`, `solid`, `shade`, `soft`, `smooth` (sub-cell partial blocks), `dots`, `rings`, `squares`, `smol`, `heavy`, `light`, or `halves`. Applies to the sidebar, toasts, and terminal `show`.                                                            |
 | `onlyCurrentModel`            | `false`        | Filter quota rows to the current model/provider when that session selection can be resolved.                                                                                                                                                                                                                        |
 | `hiddenEntries`               | `[]`           | Entry-visibility patterns (`provider[:window\|accounting]`, e.g. `zai:mcp`, `deepseek:balance`, `*:mcp`) whose rows are removed from every display surface. `/quota_status` and JSON exports keep reporting them.                                                                                                    |
 | `quietEntries`                | `[]`           | Entry-visibility patterns whose rows render subdued in the TUI sidebar instead of hidden.                                                                                                                                                                                                                            |

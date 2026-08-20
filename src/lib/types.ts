@@ -2,6 +2,7 @@
  * Type definitions for opencode-quota plugin
  */
 
+import type { BarThemeId } from "./bar-theme.js";
 import type { QuotaFormatStyle } from "./quota-format-style.js";
 import { DEFAULT_QUOTA_FORMAT_STYLE } from "./quota-format-style.js";
 import type { QuotaProviderDefinition } from "./quota-providers.js";
@@ -197,6 +198,9 @@ export interface QuotaToastConfig {
   /** Sessions included in the displayed session input/output token totals. */
   sessionTokenScope: SessionTokenScope;
 
+  /** Quota progress bar character theme. */
+  barTheme: BarThemeId;
+
   /**
    * Entry-visibility patterns (e.g. "zai:mcp", "deepseek:balance") whose
    * matching rows are removed from every quota display surface. JSON export
@@ -282,6 +286,7 @@ export const DEFAULT_CONFIG: QuotaToastConfig = {
   onlyCurrentModel: false,
   showSessionTokens: true,
   sessionTokenScope: "current",
+  barTheme: "classic",
   hiddenEntries: [],
   quietEntries: [],
   tuiSidebarPanel: {

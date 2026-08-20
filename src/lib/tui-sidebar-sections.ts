@@ -68,7 +68,7 @@ export function flattenSidebarQuotaSections(
 
 export type SidebarQuotaSectionConfig = Pick<
   QuotaToastConfig,
-  "formatStyle" | "percentDisplayMode" | "resetTimeDecimals" | "showProRataIndicator"
+  "formatStyle" | "percentDisplayMode" | "resetTimeDecimals" | "showProRataIndicator" | "barTheme"
 >;
 
 function formatClassicEntryLines(params: {
@@ -83,6 +83,7 @@ function formatClassicEntryLines(params: {
     percentDisplayMode: params.config.percentDisplayMode,
     resetTimeDecimals: params.config.resetTimeDecimals,
     showProRataIndicator: params.config.showProRataIndicator,
+    barTheme: params.config.barTheme,
   })
     .split("\n")
     .filter((line) => line.trim().length > 0);
@@ -104,6 +105,7 @@ export function buildSidebarQuotaSections(params: {
     percentDisplayMode: params.config.percentDisplayMode,
     resetTimeDecimals: params.config.resetTimeDecimals,
     showProRataIndicator: params.config.showProRataIndicator,
+    barTheme: params.config.barTheme,
   });
 
   // Groups carrying explicit group metadata render a provider header;
