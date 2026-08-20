@@ -6,11 +6,12 @@
  */
 
 import { interpretAccountingRow } from "./accounting-format.js";
-import { type BarThemeDefinition, type BarThemeId, getBarTheme } from "./bar-theme.js";
+import { type BarThemeSpec, resolveBarTheme } from "./bar-theme.js";
 import type { QuotaToastEntry, QuotaToastError, SessionTokensData } from "./entries.js";
 import { isPercentEntry } from "./entries.js";
 import {
   bar,
+  barThemeMetricsForEntry,
   DISPLAYED_PERCENT_LABEL_WIDTH,
   formatDisplayedPercentLabel,
   formatProRataIndicator,
@@ -79,7 +80,10 @@ export type GroupedRowLayoutParams = {
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
   showProRataIndicator?: boolean;
-  theme: BarThemeDefinition;
+  /** Raw bar theme spec; resolved per entry so conditionals can apply. */
+  themeSpec?: BarThemeSpec;
+  /** Frozen clock for deterministic conditional evaluation. */
+  nowMs?: number;
 };
 
 export function createGroupedRowLayoutParams(params: {
@@ -89,7 +93,8 @@ export function createGroupedRowLayoutParams(params: {
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
   showProRataIndicator?: boolean;
-  barTheme?: BarThemeId;
+  barTheme?: BarThemeSpec;
+  nowMs?: number;
 }): GroupedRowLayoutParams {
   const { maxWidth, narrowAt, tinyAt } = params.layout;
   const isTiny = maxWidth <= tinyAt;
@@ -117,7 +122,8 @@ export function createGroupedRowLayoutParams(params: {
     accountingDetail: params.accountingDetail,
     resetTimeDecimals: params.resetTimeDecimals,
     showProRataIndicator: params.showProRataIndicator,
-    theme: getBarTheme(params.barTheme),
+    themeSpec: params.barTheme,
+    nowMs: params.nowMs,
   };
 }
 
@@ -292,7 +298,7 @@ export function formatGroupedQuotaEntryLines(
   // Line 2: bar + percent
   // Line 2: bar + percent
   const barCell = bar(displayedPercent, barWidth, {
-    theme: params.theme,
+    theme: resolveBarTheme(params.themeSpec, barThemeMetricsForEntry(entry, params.nowMs)).chars,
     quiet: entry.quiet === true,
   });
   const suffixCell = padLeft(percentLabel.slice(0, percentValueCol), percentValueCol);
@@ -328,7 +334,8 @@ export function formatQuotaRowsGrouped(params: {
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
   showProRataIndicator?: boolean;
-  barTheme?: BarThemeId;
+  barTheme?: BarThemeSpec;
+  nowMs?: number;
   sessionTokens?: SessionTokensData;
 }): string {
   const layout = params.layout ?? { maxWidth: 50, narrowAt: 42, tinyAt: 32 };
@@ -342,6 +349,7 @@ export function formatQuotaRowsGrouped(params: {
     resetTimeDecimals: params.resetTimeDecimals,
     showProRataIndicator: params.showProRataIndicator,
     barTheme: params.barTheme,
+    nowMs: params.nowMs,
   });
 
   const lines: string[] = [];

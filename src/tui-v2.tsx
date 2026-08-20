@@ -18,6 +18,7 @@ import {
   type QuotaSessionModelContext,
   resolveQuotaRuntimeContext,
 } from "./lib/quota-runtime-context.js";
+import { resolveThemeColor } from "./lib/theme-colors.js";
 import { buildCompactQuotaStatusLine } from "./lib/tui-compact-format.js";
 import { buildSidebarQuotaPanelLines } from "./lib/tui-sidebar-format.js";
 import {
@@ -65,10 +66,8 @@ type TuiContext = {
   client: unknown;
   options?: Record<string, unknown>;
   theme?: {
-    current?: {
-      text?: RGBA;
-      textMuted?: RGBA;
-    };
+    /** Host theme tokens, addressed dynamically (text, textMuted, success, ...). */
+    current?: Readonly<Record<string, RGBA | undefined>>;
   };
   data: {
     on: (event: string, handler: (event: TuiEvent) => void) => () => void;
@@ -407,6 +406,18 @@ function SidebarQuotaView(props: {
     { sections: SidebarQuotaSection[]; activeProviderCount: number } | undefined
   >(undefined);
   const quietForeground = () => props.context.theme?.current?.textMuted ?? terminalForeground;
+  // Color layer resolution: quiet flags dim via the host's muted token; theme
+  // colors resolve host-token-first, then CSS names / hex literals.
+  const lineForeground = (line: { quiet: boolean; color?: string }): RGBA =>
+    line.quiet
+      ? (resolveThemeColor("quiet", props.context.theme?.current, (t) =>
+          RGBA.fromValues(t[0], t[1], t[2]),
+        ) ?? quietForeground())
+      : line.color
+        ? (resolveThemeColor(line.color, props.context.theme?.current, (t) =>
+            RGBA.fromValues(t[0], t[1], t[2]),
+          ) ?? terminalForeground)
+        : terminalForeground;
   // Flattened lines carry the blank separators between providers, error
   // rows, and session tokens, keeping the sectioned render structurally
   // identical to the pre-sectioned panel output.
@@ -444,7 +455,7 @@ function SidebarQuotaView(props: {
         {(state: () => NonNullable<ReturnType<typeof quota>>) => (
           <Show when={!expandable() || open()}>
             {flattenSidebarQuotaSections(state().sections).map((entry) => (
-              <text fg={entry.quiet ? quietForeground() : terminalForeground} wrapMode="none">
+              <text fg={lineForeground(entry)} wrapMode="none">
                 {entry.line || " "}
               </text>
             ))}

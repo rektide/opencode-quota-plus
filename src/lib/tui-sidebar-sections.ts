@@ -8,8 +8,10 @@
  * stays consistent with the panel-lines formatter.
  */
 
+import { resolveBarTheme } from "./bar-theme.js";
 import { sanitizeQuotaRenderData } from "./display-sanitize.js";
 import { formatQuotaRows } from "./format.js";
+import { barThemeMetricsForEntry } from "./format-utils.js";
 import { groupQuotaEntries } from "./grouped-entry-normalization.js";
 import { formatGroupedHeader } from "./grouped-header-format.js";
 import { getQuotaFormatStyleDefinition, type QuotaFormatStyle } from "./quota-format-style.js";
@@ -26,6 +28,8 @@ export interface SidebarQuotaSectionRow {
   lines: string[];
   /** Entry-visibility quiet hint: render subdued where supported. */
   quiet: boolean;
+  /** Color layer name from the entry's resolved bar theme, if any. */
+  color?: string;
 }
 
 export interface SidebarQuotaSection {
@@ -43,6 +47,7 @@ export interface SidebarQuotaSection {
 export type SidebarQuotaFlatLine = {
   line: string;
   quiet: boolean;
+  color?: string;
 };
 
 /**
@@ -57,7 +62,13 @@ export function flattenSidebarQuotaSections(
   for (const section of sections) {
     const body: SidebarQuotaFlatLine[] = [
       ...(section.headerLine ? [{ line: section.headerLine, quiet: false }] : []),
-      ...section.rows.flatMap((row) => row.lines.map((line) => ({ line, quiet: row.quiet }))),
+      ...section.rows.flatMap((row) =>
+        row.lines.map((line) => ({
+          line,
+          quiet: row.quiet,
+          ...(row.color ? { color: row.color } : {}),
+        })),
+      ),
     ];
     if (body.length === 0) continue;
     if (lines.length > 0) lines.push({ line: "", quiet: false });
@@ -119,16 +130,27 @@ export function buildSidebarQuotaSections(params: {
     sections.push({
       key: group,
       headerLine: explicit ? formatGroupedHeader(group) : null,
-      rows: entries.map((entry) => ({
-        lines:
-          renderer === "grouped"
-            ? formatGroupedQuotaEntryLines(
-                explicit ? { ...entry, group: undefined } : entry,
-                rowParams,
-              )
-            : formatClassicEntryLines({ entry, config: params.config }),
-        quiet: entry.quiet === true,
-      })),
+      rows: entries.map((entry) => {
+        const composed = resolveBarTheme(
+          params.config.barTheme,
+          barThemeMetricsForEntry(
+            "percentRemaining" in entry
+              ? entry
+              : { ...entry, percentRemaining: 100, label: entry.label, name: entry.name },
+          ),
+        );
+        return {
+          lines:
+            renderer === "grouped"
+              ? formatGroupedQuotaEntryLines(
+                  explicit ? { ...entry, group: undefined } : entry,
+                  rowParams,
+                )
+              : formatClassicEntryLines({ entry, config: params.config }),
+          quiet: entry.quiet === true,
+          ...(composed.color ? { color: composed.color } : {}),
+        };
+      }),
     });
   }
 
