@@ -10,6 +10,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import { getEffectiveConfigRoot } from "./config-file-utils.js";
+import { parseEntryVisibilityRule } from "./entry-visibility.js";
 import { isResetTimeDecimals } from "./format-utils.js";
 import {
   buildOpenCodeConfigCandidates,
@@ -70,6 +71,8 @@ export const QUOTA_TOAST_SETTING_SOURCE_KEYS = [
   "onlyCurrentModel",
   "showSessionTokens",
   "sessionTokenScope",
+  "hiddenEntries",
+  "quietEntries",
   "tuiSidebarPanel.enabled",
   "tuiSidebarPanel.formatStyle",
   "tuiSidebarPanel.opencodeGoPreferredWindow",
@@ -115,7 +118,8 @@ export interface LoadConfigOptions {
   configRootDir?: string;
   /**
    * Host plugin options (OpenCode v2 plugin entry `options`). Validated like
-   * `experimental.quotaToast` and applied after every config file.
+   * `experimental.quotaToast` and applied after every config file, so the
+   * plugin's own declaration is the most specific source.
    */
   pluginOptions?: Record<string, unknown>;
 }
@@ -187,6 +191,8 @@ type ValidatedQuotaToastPatch = {
   onlyCurrentModel?: boolean;
   showSessionTokens?: boolean;
   sessionTokenScope?: SessionTokenScope;
+  hiddenEntries?: string[];
+  quietEntries?: string[];
   tuiSidebarPanel?: TuiSidebarPanelPatch;
   tuiCompactStatus?: TuiCompactStatusPatch;
   tuiPromptBar?: TuiPromptBarPatch;
@@ -639,6 +645,39 @@ function extractTelemetryConfigPatch(value: unknown): TelemetryConfigPatch | und
   return Object.keys(patch).length > 0 ? patch : undefined;
 }
 
+/**
+ * Validates an entry-visibility pattern list. Each element must parse as a
+ * provider[:window|accounting] rule; parse failures are reported per index
+ * so one bad pattern does not disable the rest.
+ */
+function extractEntryVisibilityPatterns(value: unknown): {
+  patterns: string[];
+  issues: Array<{ index: number; message: string }>;
+} | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const patterns: string[] = [];
+  const issues: Array<{ index: number; message: string }> = [];
+
+  for (let index = 0; index < value.length; index += 1) {
+    const pattern = value[index];
+    if (typeof pattern !== "string" || !pattern.trim()) {
+      issues.push({ index, message: "expected a non-empty pattern string" });
+      continue;
+    }
+    const parsed = parseEntryVisibilityRule(pattern);
+    if ("error" in parsed) {
+      issues.push({ index, message: parsed.error });
+      continue;
+    }
+    patterns.push(pattern.trim());
+  }
+
+  return { patterns, issues };
+}
+
 function extractValidatedQuotaToastPatch(
   quotaToastConfig: Record<string, unknown>,
   reportIssue?: (key: string, message: string) => void,
@@ -854,6 +893,20 @@ function extractValidatedQuotaToastPatch(
       patch.sessionTokenScope = quotaToastConfig.sessionTokenScope;
     } else {
       reportIssue?.("sessionTokenScope", 'expected "current" or "tree"');
+    }
+  }
+
+  for (const key of ["hiddenEntries", "quietEntries"] as const) {
+    if (hasOwnKey(quotaToastConfig, key)) {
+      const patterns = extractEntryVisibilityPatterns(quotaToastConfig[key]);
+      if (patterns) {
+        patch[key] = patterns.patterns;
+        for (const issue of patterns.issues) {
+          reportIssue?.(`${key}[${issue.index}]`, issue.message);
+        }
+      } else {
+        reportIssue?.(key, 'expected an array of "provider[:window|accounting]" patterns');
+      }
     }
   }
 
@@ -1084,6 +1137,16 @@ function applyValidatedQuotaToastPatch(
   if (hasOwnKey(patch, "sessionTokenScope")) {
     config.sessionTokenScope = patch.sessionTokenScope!;
     applySettingSource(settingSources, "sessionTokenScope", sourcePath);
+  }
+
+  if (hasOwnKey(patch, "hiddenEntries")) {
+    config.hiddenEntries = patch.hiddenEntries!;
+    applySettingSource(settingSources, "hiddenEntries", sourcePath);
+  }
+
+  if (hasOwnKey(patch, "quietEntries")) {
+    config.quietEntries = patch.quietEntries!;
+    applySettingSource(settingSources, "quietEntries", sourcePath);
   }
 
   if (patch.tuiSidebarPanel) {
@@ -1438,20 +1501,18 @@ export async function loadConfig(
   }
 
   const fileConfig = await loadFromFiles();
-  if (fileConfig.config) {
-    if (meta) {
-      meta.source = "files";
-      meta.paths = fileConfig.usedPaths;
-      meta.globalConfigPaths = fileConfig.globalConfigPaths;
-      meta.workspaceConfigPaths = fileConfig.workspaceConfigPaths;
-      meta.settingSources = fileConfig.settingSources;
-      meta.networkSettingSources = fileConfig.networkSettingSources;
-      meta.configIssues = fileConfig.configIssues;
-    }
-    return fileConfig.config;
+  let config: QuotaToastConfig | undefined = fileConfig.config ?? undefined;
+  if (config && meta) {
+    meta.source = "files";
+    meta.paths = fileConfig.usedPaths;
+    meta.globalConfigPaths = fileConfig.globalConfigPaths;
+    meta.workspaceConfigPaths = fileConfig.workspaceConfigPaths;
+    meta.settingSources = fileConfig.settingSources;
+    meta.networkSettingSources = fileConfig.networkSettingSources;
+    meta.configIssues = fileConfig.configIssues;
   }
 
-  if (client) {
+  if (!config && client) {
     try {
       const response = await client.config.get();
 
@@ -1460,11 +1521,11 @@ export async function loadConfig(
       const quotaToastConfig = (response.data as any)?.experimental?.quotaToast;
 
       if (isPlainObject(quotaToastConfig)) {
-        const config = cloneDefaultConfig();
+        const sdkConfig = cloneDefaultConfig();
         const settingSources: QuotaToastSettingSources = {};
         const configIssues: LoadConfigIssue[] = [];
         applyValidatedQuotaToastPatch(
-          config,
+          sdkConfig,
           extractValidatedQuotaToastPatch(quotaToastConfig, (key, message) => {
             configIssues.push({ path: "client.config.get", key, message });
           }),
@@ -1503,21 +1564,42 @@ export async function loadConfig(
           meta.configIssues = configIssues;
         }
 
-        return config;
+        config = sdkConfig;
       }
     } catch {
       // ignore; fall back to defaults below
     }
   }
 
-  if (meta) {
-    meta.source = "defaults";
-    meta.paths = [];
-    meta.globalConfigPaths = [];
-    meta.workspaceConfigPaths = [];
-    meta.settingSources = {};
-    meta.networkSettingSources = {};
-    meta.configIssues = [];
+  if (!config) {
+    if (meta) {
+      meta.source = "defaults";
+      meta.paths = [];
+      meta.globalConfigPaths = [];
+      meta.workspaceConfigPaths = [];
+      meta.settingSources = {};
+      meta.networkSettingSources = {};
+      meta.configIssues = [];
+    }
+    config = cloneDefaultConfig();
   }
-  return cloneDefaultConfig();
+
+  // Host plugin options override every file: the plugin entry's own
+  // declaration is the most specific source (OpenCode v2 plugin options).
+  if (isPlainObject(options?.pluginOptions) && Object.keys(options.pluginOptions).length > 0) {
+    const pluginIssues: LoadConfigIssue[] = [];
+    applyValidatedQuotaToastPatch(
+      config,
+      extractValidatedQuotaToastPatch(options.pluginOptions, (key, message) => {
+        pluginIssues.push({ path: "plugin.options", key, message });
+      }),
+      "plugin.options",
+      meta?.settingSources ?? {},
+    );
+    if (meta) {
+      meta.configIssues = [...(meta.configIssues ?? []), ...pluginIssues];
+    }
+  }
+
+  return config;
 }
