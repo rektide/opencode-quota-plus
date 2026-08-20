@@ -904,6 +904,7 @@ export async function buildQuotaDialogCommandOutput(params: {
   setLastSessionTokenError?: (error: SessionTokenError | undefined) => void;
   log?: (message: string, extra?: Record<string, unknown>) => Promise<void>;
   onDetectedProviderIds?: (providerIds: string[]) => Promise<void>;
+  pluginOptions?: Record<string, unknown>;
 }): Promise<QuotaDialogCommandOutputResult> {
   const generatedAtMs = params.generatedAtMs ?? Date.now();
   const runtime = await resolveQuotaRuntimeContext({
@@ -913,6 +914,7 @@ export async function buildQuotaDialogCommandOutput(params: {
     sessionMeta: params.sessionMeta,
     resolveSessionMeta: params.resolveSessionMeta,
     includeSessionMeta: (config) => config.onlyCurrentModel || params.command === "quota_status",
+    pluginOptions: params.pluginOptions,
   });
 
   setPricingSnapshotAutoRefresh(runtime.config.pricingSnapshot.autoRefresh);

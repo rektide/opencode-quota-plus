@@ -32,6 +32,8 @@ export interface ResolveQuotaRuntimeContextParams {
   configMeta?: LoadConfigMeta;
   providers?: QuotaProvider[];
   configureTelemetry?: boolean;
+  /** Host plugin options (v2 plugin entry `options`); highest config precedence. */
+  pluginOptions?: Record<string, unknown>;
 }
 
 export interface QuotaRuntimeContext {
@@ -67,6 +69,7 @@ export async function resolveQuotaRuntimeContext(
     params.config ??
     (await loadConfig(params.client, configMeta, {
       configRootDir: roots.configRoot,
+      pluginOptions: params.pluginOptions,
     }));
   let sessionMeta = params.sessionMeta;
   if (

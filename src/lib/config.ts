@@ -113,6 +113,11 @@ export interface LoadConfigOptions {
   /** @deprecated Prefer configRootDir for new callers. */
   cwd?: string;
   configRootDir?: string;
+  /**
+   * Host plugin options (OpenCode v2 plugin entry `options`). Validated like
+   * `experimental.quotaToast` and applied after every config file.
+   */
+  pluginOptions?: Record<string, unknown>;
 }
 
 export function createLoadConfigMeta(): LoadConfigMeta {
