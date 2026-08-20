@@ -198,3 +198,16 @@ Config layering discovered along the way (highest wins):
 suppression (`zai:mcp`, `deepseek:balance`) lives in
 `~/.config/opencode/opencode-quota/quota-toast.json`.
 
+## Addendum: bar themes (2026-08-19)
+
+Quota bars render through `bar()` in format-utils with a `barTheme`
+config key selecting one of twelve glyph pairs (`classic` `█░` default,
+`solid`, `shade` `▓░`, `soft` `▒░`, `smooth`, `dots` `●·`, `rings` `●○`,
+`squares` `■□`, `smol` `▪·`, `heavy` `━┄`, `light` `─·`, `halves` `◐·`),
+each with a quieter filled glyph for quiet rows — character-level
+dimming that also works on color-less surfaces. `smooth` uses left
+partial blocks (`▏▎▍▌▋▊▉`) for sub-cell edges; a partial cell cannot
+layer the empty shade behind the sliver (one glyph per cell), so it
+notches shaded tracks and suits plain ones. Visual survey script:
+`.test-agent/v2-client-check/bar-themes.mjs`.
+
