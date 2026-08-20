@@ -9,7 +9,7 @@
  * conditional on entry metrics (see BarThemeSpec).
  */
 
-import { isThemeColorName } from "./theme-colors.js";
+import { CSS_NAMED_COLORS, HOST_THEME_TOKEN_NAMES } from "./theme-colors.js";
 
 export interface BarThemeDefinition {
   id: BarThemeId;
@@ -154,8 +154,8 @@ export function getBarTheme(id?: BarThemeId): BarThemeDefinition {
  * for an entry (no pro-rata delta, no future reset time) never match.
  */
 export interface BarThemeRule {
-  /** Characters theme (id or composite) applied when the rule matches. */
-  theme?: string | string[];
+  /** Theme stack applied when the rule matches: names, inline bags, or both. */
+  theme?: BarThemeStackValue;
   /** Pro-rata burn-rate delta in percentage points. */
   prorata?: number;
   /** Quota used, in percent (0-100). */
@@ -166,24 +166,194 @@ export interface BarThemeRule {
   hours?: number;
 }
 
+/** One stack element: a preset name, a nested stack, or an inline bag. */
+export type BarThemeStackValue = string | string[] | BarThemeBag | BarThemeStackElement[];
+
+export type BarThemeStackElement = string | string[] | BarThemeBag;
+
 /**
- * A bar theme spec: a single theme id, a composite like
- * `["squares", "quiet"]` (characters + color), one rule, or a list mixing
- * any of those. In a list containing at least one rule object, plain
- * strings/composites act as unconditional rules and the last matching
- * entry wins; a list of only names composes a single theme.
+ * A bar theme spec: any stack of preset names and inline bags, optionally
+ * with conditional rules. Objects whose keys are all bag keys are bags;
+ * objects with rule keys are rules (whose `theme` is itself a stack). In a
+ * list containing at least one rule, every element acts as a rule and the
+ * last match wins per property; a list of only bags/names composes directly.
  */
 export type BarThemeSpec =
-  | string
-  | string[]
+  | BarThemeStackValue
   | BarThemeRule
-  | Array<string | string[] | BarThemeRule>;
+  | Array<BarThemeStackElement | BarThemeRule>;
+
+/**
+ * The theme property bag. Every theme name maps to a (partial) bag; stacking
+ * spreads bags left to right and the last value per key wins. There is no
+ * shape/color distinction in the model: `squares` is a bag that happens to
+ * define glyphs, `red` is a bag that happens to define a color, and a
+ * compound preset would set both.
+ */
+export interface BarThemeBag {
+  filled?: string;
+  empty?: string;
+  quietFilled?: string;
+  partial?: boolean;
+  /** Color name (host token, CSS name, or hex literal), resolved at render. */
+  color?: string;
+}
 
 export interface ComposedBarTheme {
   /** Character set the bar renders with. */
   chars: BarThemeDefinition;
   /** Color layer name; resolved by the rendering surface if it can. */
   color?: string;
+}
+
+/** Registry of preset bags: character themes plus every accepted color name. */
+export const BAR_THEME_PRESETS: Readonly<Record<string, BarThemeBag>> = {
+  // Character presets are total over their glyph keys so stacking is
+  // unambiguous per key (e.g. "classic" after "smooth" clears `partial`).
+  ...Object.fromEntries(
+    Object.entries(BAR_THEMES).map(([id, def]) => [
+      id,
+      {
+        filled: def.filled,
+        empty: def.empty,
+        quietFilled: def.quietFilled,
+        partial: def.partial === true,
+      },
+    ]),
+  ),
+  // Color presets: one-key bags. Host tokens and CSS names alike.
+  ...Object.fromEntries(HOST_THEME_TOKEN_NAMES.map((token) => [token, { color: token }])),
+  ...Object.fromEntries(Object.keys(CSS_NAMED_COLORS).map((name) => [name, { color: name }])),
+  quiet: { color: "quiet" },
+};
+
+/**
+ * Looks up a preset bag by name. A `#rrggbb`/`#rgb` literal is not a registry
+ * entry but a color value, and as a value it defines the color property.
+ * Returns undefined for unknown names.
+ */
+export function presetFor(name: string): BarThemeBag | undefined {
+  const preset = BAR_THEME_PRESETS[name];
+  if (preset) return preset;
+  if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(name)) return { color: name };
+  return undefined;
+}
+
+const GLYPH_KEYS = ["filled", "empty", "quietFilled", "partial"] as const;
+const BAG_KEYS = [...GLYPH_KEYS, "color"] as const;
+
+type AccumulatedBag = BarThemeBag & { glyphSource?: string };
+
+/** True when a plain object's keys are all theme bag keys (an inline bag). */
+function isInlineBag(value: unknown): value is Record<string, unknown> {
+  if (!isRecordValue(value)) return false;
+  const keys = Object.keys(value);
+  return keys.length > 0 && keys.every((key) => (BAG_KEYS as readonly string[]).includes(key));
+}
+
+/** Validates an inline bag; reports per-key issues and keeps valid keys. */
+function validateBag(value: Record<string, unknown>, issues: BarThemeSpecIssue[]): BarThemeBag {
+  const bag: BarThemeBag = {};
+  for (const [key, raw] of Object.entries(value)) {
+    if (!(BAG_KEYS as readonly string[]).includes(key)) {
+      issues.push({
+        message: `unknown theme bag key "${key}"; expected one of: ${BAG_KEYS.join(", ")}`,
+      });
+      continue;
+    }
+    if (key === "partial") {
+      if (typeof raw === "boolean") {
+        bag.partial = raw;
+      } else {
+        issues.push({ message: `theme bag key "partial" must be a boolean` });
+      }
+      continue;
+    }
+    if (typeof raw === "string") {
+      (bag as Record<string, unknown>)[key] = raw;
+    } else {
+      issues.push({ message: `theme bag key "${key}" must be a string` });
+    }
+  }
+  return bag;
+}
+
+/** Applies one stack element (name, nested stack, or inline bag). */
+function applyStackElement(
+  element: BarThemeStackElement,
+  issues: BarThemeSpecIssue[],
+  accumulated: AccumulatedBag,
+): AccumulatedBag {
+  if (typeof element === "string") {
+    return applyName(element, issues, accumulated);
+  }
+  if (Array.isArray(element)) {
+    let next = accumulated;
+    for (const inner of element) {
+      next = applyStackElement(inner, issues, next);
+    }
+    return next;
+  }
+  // Inline bag: spread as-is. It overrides only the keys it defines.
+  return { ...accumulated, ...element };
+}
+
+function applyStack(
+  elements: readonly BarThemeStackElement[],
+  issues: BarThemeSpecIssue[],
+): AccumulatedBag {
+  let accumulated: AccumulatedBag = {};
+  for (const element of elements) {
+    accumulated = applyStackElement(element, issues, accumulated);
+  }
+  return accumulated;
+}
+
+/** Applies one preset name onto an accumulated bag. Unknown names report. */
+function applyName(
+  name: string,
+  issues: BarThemeSpecIssue[],
+  accumulated: AccumulatedBag,
+): AccumulatedBag {
+  const preset = presetFor(name);
+  if (!preset) {
+    issues.push({
+      message: `unknown theme name "${name}"; expected a preset (character themes, host tokens, CSS color names) or a #rrggbb literal`,
+    });
+    return accumulated;
+  }
+  const definesGlyphs = GLYPH_KEYS.some((key) => preset[key] !== undefined);
+  return {
+    ...accumulated,
+    ...preset,
+    ...(definesGlyphs ? { glyphSource: name } : {}),
+  };
+}
+
+/** Materializes the public resolved theme from an accumulated bag. */
+function finalizeBag(bag: AccumulatedBag): ComposedBarTheme {
+  return {
+    chars: definitionFromBag(bag),
+    ...(bag.color !== undefined ? { color: bag.color } : {}),
+  };
+}
+
+/** Materializes the glyph definition from an accumulated bag. */
+function definitionFromBag(bag: AccumulatedBag): BarThemeDefinition {
+  const base: BarThemeDefinition = {
+    ...BAR_THEMES[DEFAULT_BAR_THEME_ID],
+    partial: BAR_THEMES[DEFAULT_BAR_THEME_ID].partial === true,
+  };
+  const glyphs = Object.fromEntries(GLYPH_KEYS.map((key) => [key, bag[key] ?? base[key]])) as Pick<
+    BarThemeDefinition,
+    "filled" | "empty" | "quietFilled" | "partial"
+  >;
+  const source = bag.glyphSource ? BAR_THEMES[bag.glyphSource as BarThemeId] : undefined;
+  return {
+    id: source?.id ?? DEFAULT_BAR_THEME_ID,
+    label: source?.label ?? base.label,
+    ...glyphs,
+  };
 }
 
 export interface BarThemeMetrics {
@@ -203,51 +373,43 @@ function isRecordValue(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function classifyThemeName(
-  name: string,
-  issues: BarThemeSpecIssue[],
-): { chars?: BarThemeId; color?: string } {
-  if (isBarThemeId(name)) return { chars: name };
-  if (isThemeColorName(name)) return { color: name };
-  issues.push({
-    message: `unknown theme name "${name}"; expected a character theme (${Object.keys(BAR_THEMES).join(", ")}) or a color (host token, CSS name, or #rrggbb)`,
-  });
-  return {};
-}
-
-function composeNames(
-  names: readonly string[],
-  issues: BarThemeSpecIssue[],
-): { chars?: BarThemeId; color?: string } {
-  let composed: { chars?: BarThemeId; color?: string } = {};
-  for (const name of names) {
-    composed = { ...composed, ...classifyThemeName(name, issues) };
-  }
-  return composed;
-}
-
 const RULE_CONDITION_KEYS = ["theme", "prorata", "used", "percent", "hours"] as const;
 
 function parseRule(
   value: Record<string, unknown>,
   issues: BarThemeSpecIssue[],
 ): BarThemeRule | null {
+  // Bag keys on a rule are shorthand for its theme: they stack after an
+  // explicit `theme` value so both apply.
+  const bagKeys: Record<string, unknown> = {};
   for (const key of Object.keys(value)) {
+    if ((BAG_KEYS as readonly string[]).includes(key)) {
+      bagKeys[key] = value[key];
+      continue;
+    }
     if (!(RULE_CONDITION_KEYS as readonly string[]).includes(key)) {
       issues.push({ message: `unknown rule key "${key}"` });
     }
   }
+  const shorthandBag = validateBag(bagKeys, issues);
 
   const rule: BarThemeRule = {};
   if (value.theme !== undefined) {
     if (typeof value.theme === "string") {
       rule.theme = value.theme;
-    } else if (Array.isArray(value.theme) && value.theme.every((n) => typeof n === "string")) {
-      rule.theme = value.theme as string[];
+    } else if (Array.isArray(value.theme)) {
+      rule.theme = value.theme as BarThemeStackElement[];
+    } else if (isRecordValue(value.theme)) {
+      rule.theme = validateBag(value.theme, issues);
     } else {
-      issues.push({ message: "rule theme must be a string or array of strings" });
+      issues.push({ message: "rule theme must be a name, [stack], or inline bag" });
       return null;
     }
+  }
+  const shorthandKeys = Object.keys(shorthandBag);
+  if (shorthandKeys.length > 0) {
+    rule.theme =
+      rule.theme === undefined ? shorthandBag : [rule.theme as BarThemeStackElement, shorthandBag];
   }
 
   for (const key of ["prorata", "used", "percent", "hours"] as const) {
@@ -266,11 +428,11 @@ function parseRule(
 type NormalizedThemeSpec =
   | {
       kind: "composed";
-      composed: { chars?: BarThemeId; color?: string };
+      composed: AccumulatedBag;
     }
   | {
       kind: "rules";
-      rules: Array<{ composed: { chars?: BarThemeId; color?: string }; rule: BarThemeRule }>;
+      rules: Array<{ composed: AccumulatedBag; rule: BarThemeRule }>;
     };
 
 /**
@@ -284,53 +446,65 @@ export function validateBarThemeSpec(value: unknown): {
 } {
   const issues: BarThemeSpecIssue[] = [];
   if (typeof value === "string") {
-    const classified = classifyThemeName(value, issues);
-    return { spec: classified.chars || classified.color ? value : undefined, issues };
+    const preset = presetFor(value);
+    if (!preset) {
+      issues.push({
+        message: `unknown theme name "${value}"; expected a preset (character themes, host tokens, CSS color names) or a #rrggbb literal`,
+      });
+      return { spec: undefined, issues };
+    }
+    return { spec: value, issues };
+  }
+
+  if (isInlineBag(value)) {
+    validateBag(value, issues);
+    return { spec: value as BarThemeBag, issues };
+  }
+
+  if (isRecordValue(value)) {
+    // Top-level rule object.
+    const rule = parseRule(value, issues);
+    if (rule) {
+      if (rule.theme !== undefined && rule.theme !== null) {
+        applyStackElement(rule.theme as BarThemeStackElement, issues, {});
+      }
+      return { spec: value as BarThemeRule, issues };
+    }
+    return { spec: undefined, issues };
   }
 
   if (!Array.isArray(value) || value.length === 0) {
-    issues.push({ message: "expected a theme name, [names], a rule, or a non-empty rule list" });
+    issues.push({
+      message: "expected a theme name, [stack], an inline bag, a rule, or a non-empty rule list",
+    });
     return { spec: undefined, issues };
   }
 
   const items = value.filter((item) => item !== undefined);
-  const hasRule = items.some(isRecordValue);
+  const hasRule = items.some((item) => isRecordValue(item) && !isInlineBag(item));
   if (!hasRule) {
-    if (!items.every((name) => typeof name === "string")) {
-      issues.push({ message: "composite themes are arrays of name strings" });
-      return { spec: undefined, issues };
-    }
-    composeNames(items as string[], issues);
-    return { spec: items as string[], issues };
+    applyStack(items as BarThemeStackElement[], issues);
+    return { spec: items as BarThemeStackElement[], issues };
   }
 
   let ruleCount = 0;
   for (const item of items) {
-    if (isRecordValue(item)) {
+    if (isRecordValue(item) && !isInlineBag(item)) {
       const rule = parseRule(item, issues);
       if (rule) {
         ruleCount += 1;
-        if (rule.theme !== undefined) {
-          if (typeof rule.theme === "string") {
-            classifyThemeName(rule.theme, issues);
-          } else {
-            composeNames(rule.theme, issues);
-          }
+        if (rule.theme !== undefined && rule.theme !== null) {
+          applyStackElement(rule.theme as BarThemeStackElement, issues, {});
         }
       }
       continue;
     }
-    if (typeof item === "string") {
+    if (typeof item === "string" || Array.isArray(item) || isInlineBag(item)) {
       ruleCount += 1;
-      classifyThemeName(item, issues);
+      applyStackElement(item as BarThemeStackElement, issues, {});
       continue;
     }
-    if (Array.isArray(item) && item.every((n) => typeof n === "string")) {
-      ruleCount += 1;
-      composeNames(item as string[], issues);
-      continue;
-    }
-    issues.push({ message: "rule list entries must be a name, [names], or a rule object" });
+    issues.push({ message: "rule list entries must be a name, [stack], an inline bag, or a rule" });
   }
 
   return { spec: ruleCount > 0 ? value : undefined, issues };
@@ -368,39 +542,40 @@ function matchesRule(rule: BarThemeRule, metrics: BarThemeMetrics): boolean {
   return true;
 }
 
-function composeFromThemeValue(theme: string | string[] | undefined): {
-  chars?: BarThemeId;
-  color?: string;
-} {
+function composeFromThemeValue(theme: BarThemeStackValue | undefined): AccumulatedBag {
   if (theme === undefined) return {};
-  return typeof theme === "string" ? composeNames([theme], []) : composeNames(theme, []);
+  if (typeof theme === "string") return applyStack([theme], []);
+  if (Array.isArray(theme)) return applyStack(theme, []);
+  return { ...(theme as BarThemeBag) };
 }
 
 function normalizeSpec(spec: BarThemeSpec | undefined): NormalizedThemeSpec {
   if (spec === undefined) return { kind: "composed", composed: {} };
   if (typeof spec === "string") {
-    return { kind: "composed", composed: composeNames([spec], []) };
+    return { kind: "composed", composed: applyStack([spec], []) };
+  }
+  if (isInlineBag(spec)) {
+    return { kind: "composed", composed: { ...(spec as BarThemeBag) } };
   }
   if (Array.isArray(spec)) {
     const items = spec.filter((item) => item !== undefined);
-    if (items.some(isRecordValue)) {
+    if (items.some((item) => isRecordValue(item) && !isInlineBag(item))) {
       return {
         kind: "rules",
         rules: items.map((item) => {
-          if (isRecordValue(item)) {
+          if (isRecordValue(item) && !isInlineBag(item)) {
             const rule = parseRule(item, []) ?? {};
             return { composed: composeFromThemeValue(rule.theme), rule };
           }
-          if (Array.isArray(item)) {
-            return { composed: composeNames(item as string[], []), rule: {} };
-          }
-          return { composed: composeNames([item as string], []), rule: {} };
+          return { composed: applyStackElement(item as BarThemeStackElement, [], {}), rule: {} };
         }),
       };
     }
-    return { kind: "composed", composed: composeNames(spec as string[], []) };
+    return { kind: "composed", composed: applyStack(items as BarThemeStackElement[], []) };
   }
-  return { kind: "rules", rules: [{ composed: composeFromThemeValue(spec.theme), rule: spec }] };
+  // Remaining object shape is a rule (bags returned above).
+  const rule = spec as BarThemeRule;
+  return { kind: "rules", rules: [{ composed: composeFromThemeValue(rule.theme), rule }] };
 }
 
 /**
@@ -414,13 +589,10 @@ export function resolveBarTheme(
   const normalized = normalizeSpec(spec);
 
   if (normalized.kind === "composed") {
-    return {
-      chars: getBarTheme(normalized.composed.chars),
-      ...(normalized.composed.color ? { color: normalized.composed.color } : {}),
-    };
+    return finalizeBag(normalized.composed);
   }
 
-  let resolved: { chars?: BarThemeId; color?: string } = {};
+  let resolved: AccumulatedBag = {};
   for (const { composed, rule } of normalized.rules) {
     if (matchesRule(rule, metrics)) {
       resolved = {
@@ -430,8 +602,5 @@ export function resolveBarTheme(
     }
   }
 
-  return {
-    chars: getBarTheme(resolved.chars),
-    ...(resolved.color ? { color: resolved.color } : {}),
-  };
+  return finalizeBag(resolved);
 }

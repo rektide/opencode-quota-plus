@@ -220,8 +220,11 @@ name, or `#rrggbb` names a color. Conditions read per-entry metrics:
 `computeProRataDeltaPct`), `used`, `percent`, `hours` (hours until
 reset). Survey: `.test-agent/v2-client-check/bar-specs.mjs`.
 Semantics note: specs are property stacks, not shape+color pairs —
-every name sets one property, arrays and rule lists merge left to
-right, and the last value per property wins (`["red", "orange",
-"teal"]` is legal and teal wins; a color-only rule never resets the
-shape). The only place shape/color distinction exists is classifying a
-bare string, which must infer its slot from the name.
+every name is a key into a registry of bags (`BAR_THEME_PRESETS`), each
+bag defines whatever keys it defines (`filled`, `empty`, `quietFilled`,
+`partial`, `color`), arrays and rule lists spread bags left to right,
+and the last value per key wins (`["red", "orange", "teal"]` is legal
+and teal wins). Inline bags set exactly the keys they name, as stack
+elements, whole specs, or rule-level shorthand stacked after an
+explicit `theme`. The resolver applies whatever is at each key — there
+is no shape/color classification step anywhere.

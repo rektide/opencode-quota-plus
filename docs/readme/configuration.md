@@ -145,18 +145,29 @@ This scope applies to the embedded session-token output in `/quota` on Web and T
 
 #### Composing: themes are property stacks
 
-A theme is a bag of properties. Today the bag has two properties — the character set and the color — but they are not a pair: each name in an array sets one property, entries merge left to right, and the **last value per property wins**. Repeat a property, stack colors on colors, whatever:
+A theme is a bag of properties. Every preset name — character themes like `squares`, colors like `teal` or `quiet` — is just a key into a registry of bags, and each bag defines whatever keys it defines (`filled`, `empty`, `quietFilled`, `partial`, `color`). Stacking spreads bags left to right; the last value per key wins. There is no shape/color distinction anywhere in the model — `squares` merely happens to define glyphs, `teal` merely happens to define a color:
 
 ```jsonc
-{ "barTheme": ["squares", "quiet"] }          // chars + color
-{ "barTheme": ["red", "orange", "teal"] }     // teal wins
+{ "barTheme": ["squares", "quiet"] }          // glyph bag + color bag
+{ "barTheme": ["red", "orange", "teal"] }     // three color bags, teal wins
 { "barTheme": ["squares", "dots", "teal"] }   // dots + teal
-{ "barTheme": "teal" }                        // lone color, default chars
+{ "barTheme": "teal" }                        // one bag, one key
 ```
 
-A bare string names one property; which one is inferred from the name (a character theme id sets `chars`, anything color-like sets `color`). Rule lists stack the same way — each matching rule merges its defined properties over the accumulated result, so a rule that only names a color never resets the shape, and vice versa.
+Inline bags set exactly the keys you name — a partial override on top of whatever came before:
 
-Color names resolve in order: OpenCode theme tokens (`text`, `textMuted`, `success`, `warning`, `error`, `primary`, `accent`, `syntaxKeyword`, `diffAdded`, …), then common CSS names (`red`, `orange`, `teal`, …), then `#rrggbb`/`#rgb` hex. Colors apply to the TUI sidebar row; surfaces without per-row color (toasts, terminal `show`) keep the glyphs and ignore the color layer.
+```jsonc
+{ "barTheme": ["squares", { "filled": "●" }] }          // squares but ● filled
+{ "barTheme": { "filled": "█", "empty": " ", "color": "teal" } }  // whole spec inline
+```
+
+Rules stack identically, and bag keys written directly on a rule are shorthand for its theme (applied after any explicit `theme`, so both stack):
+
+```jsonc
+{ "theme": "squares", "filled": "●", "color": "red", "used": 90 }
+```
+
+Color values resolve in order: OpenCode theme tokens (`text`, `textMuted`, `success`, `warning`, `error`, `primary`, `accent`, `syntaxKeyword`, `diffAdded`, …), then common CSS names (`red`, `orange`, `teal`, …), then `#rrggbb`/`#rgb` hex. Colors apply to the TUI sidebar row; surfaces without per-row color (toasts, terminal `show`) keep the glyphs and ignore the color layer.
 
 #### Conditional themes
 
@@ -466,7 +477,7 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `accountingDetail`            | `summary`      | Provider-neutral accounting detail across human surfaces: `summary` keeps primary rows; `detailed` also admits supplementary rows and fuller basis detail when width allows. Independent of `formatStyle` and `percentDisplayMode`.                                                                                |
 | `resetTimeDecimals`           | unset          | Decimal places for compact reset countdowns in popup toasts, the Sidebar panel, and terminal `show`. Accepts integers `0`–`4`; unset preserves the default integer-day and half-hour-step display.                                                                                                                  |
 | `showProRataIndicator`        | `true`         | When `true`, prefix each reset countdown with a signed pro-rata burn-rate delta, for example `+25% 5.7d` (using 25 percentage points more than the linear pro-rata pace). Requires a known window duration (5h/1h/daily/weekly/monthly/yearly/RPM); otherwise omitted.                                             |
-| `barTheme`                    | `"classic"`    | Bar theme spec: a property stack of character themes, colors, and conditional rules — entries merge left to right, last value per property wins. Characters: `classic`, `solid`, `shade`, `soft`, `smooth`, `dots`, `rings`, `squares`, `smol`, `heavy`, `light`, `halves`. Colors: host theme tokens, CSS names, or `#rrggbb`. Conditions: `prorata`, `used`, `percent`, `hours`. |
+| `barTheme`                    | `"classic"`    | Bar theme spec: a stack of preset bags and inline `{filled, empty, quietFilled, partial, color}` bags, optionally with conditional rules — entries merge left to right, last value per key wins. Presets: character themes (`classic`, `solid`, `shade`, `soft`, `smooth`, `dots`, `rings`, `squares`, `smol`, `heavy`, `light`, `halves`) and colors (host theme tokens, CSS names, `#rrggbb`). Conditions: `prorata`, `used`, `percent`, `hours`. |
 | `onlyCurrentModel`            | `false`        | Filter quota rows to the current model/provider when that session selection can be resolved.                                                                                                                                                                                                                        |
 | `hiddenEntries`               | `[]`           | Entry-visibility patterns (`provider[:window\|accounting]`, e.g. `zai:mcp`, `deepseek:balance`, `*:mcp`) whose rows are removed from every display surface. `/quota_status` and JSON exports keep reporting them.                                                                                                    |
 | `quietEntries`                | `[]`           | Entry-visibility patterns whose rows render subdued in the TUI sidebar instead of hidden.                                                                                                                                                                                                                            |
