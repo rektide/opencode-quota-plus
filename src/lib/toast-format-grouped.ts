@@ -6,6 +6,7 @@
  */
 
 import { interpretAccountingRow } from "./accounting-format.js";
+import { type BarThemeDefinition, type BarThemeId, getBarTheme } from "./bar-theme.js";
 import type { QuotaToastEntry, QuotaToastError, SessionTokensData } from "./entries.js";
 import { isPercentEntry } from "./entries.js";
 import {
@@ -78,6 +79,7 @@ export type GroupedRowLayoutParams = {
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
   showProRataIndicator?: boolean;
+  theme: BarThemeDefinition;
 };
 
 export function createGroupedRowLayoutParams(params: {
@@ -87,6 +89,7 @@ export function createGroupedRowLayoutParams(params: {
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
   showProRataIndicator?: boolean;
+  barTheme?: BarThemeId;
 }): GroupedRowLayoutParams {
   const { maxWidth, narrowAt, tinyAt } = params.layout;
   const isTiny = maxWidth <= tinyAt;
@@ -114,6 +117,7 @@ export function createGroupedRowLayoutParams(params: {
     accountingDetail: params.accountingDetail,
     resetTimeDecimals: params.resetTimeDecimals,
     showProRataIndicator: params.showProRataIndicator,
+    theme: getBarTheme(params.barTheme),
   };
 }
 
@@ -286,7 +290,11 @@ export function formatGroupedQuotaEntryLines(
   }
 
   // Line 2: bar + percent
-  const barCell = bar(displayedPercent, barWidth);
+  // Line 2: bar + percent
+  const barCell = bar(displayedPercent, barWidth, {
+    theme: params.theme,
+    quiet: entry.quiet === true,
+  });
   const suffixCell = padLeft(percentLabel.slice(0, percentValueCol), percentValueCol);
   lines.push([barCell, suffixCell].join(separator));
 
@@ -305,7 +313,6 @@ export function formatGroupedQuotaEntryLines(
     }
     if (detailLine) lines.push(detailLine);
   }
-
   return lines;
 }
 
@@ -321,6 +328,7 @@ export function formatQuotaRowsGrouped(params: {
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
   showProRataIndicator?: boolean;
+  barTheme?: BarThemeId;
   sessionTokens?: SessionTokensData;
 }): string {
   const layout = params.layout ?? { maxWidth: 50, narrowAt: 42, tinyAt: 32 };
@@ -333,6 +341,7 @@ export function formatQuotaRowsGrouped(params: {
     accountingDetail: params.accountingDetail,
     resetTimeDecimals: params.resetTimeDecimals,
     showProRataIndicator: params.showProRataIndicator,
+    barTheme: params.barTheme,
   });
 
   const lines: string[] = [];

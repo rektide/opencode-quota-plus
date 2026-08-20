@@ -920,6 +920,7 @@ export async function collectQuotaToastMessage(params: {
       accountingDetail: runtimeConfig.accountingDetail,
       resetTimeDecimals: runtimeConfig.resetTimeDecimals,
       showProRataIndicator: runtimeConfig.showProRataIndicator,
+      barTheme: runtimeConfig.barTheme,
       sessionTokens: data?.sessionTokens,
     });
 

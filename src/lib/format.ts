@@ -3,6 +3,7 @@
  */
 
 import { type AccountingRowInterpretation, interpretAccountingRow } from "./accounting-format.js";
+import { type BarThemeId, getBarTheme } from "./bar-theme.js";
 import type { QuotaToastEntry, QuotaToastError, SessionTokensData } from "./entries.js";
 import { isPercentEntry } from "./entries.js";
 import {
@@ -104,6 +105,7 @@ export function formatQuotaRows(params: {
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
   showProRataIndicator?: boolean;
+  barTheme?: BarThemeId;
   sessionTokens?: SessionTokensData;
 }): string {
   const styleDefinition = getQuotaFormatStyleDefinition(params.style);
@@ -117,12 +119,14 @@ export function formatQuotaRows(params: {
       accountingDetail: params.accountingDetail,
       resetTimeDecimals: params.resetTimeDecimals,
       showProRataIndicator: params.showProRataIndicator,
+      barTheme: params.barTheme,
       sessionTokens: params.sessionTokens,
     });
   }
 
   const layout = params.layout ?? { maxWidth: 50, narrowAt: 42, tinyAt: 32 };
   const maxWidth = layout.maxWidth;
+  const barTheme = getBarTheme(params.barTheme);
 
   // Responsive columns.
   // - default: name + time on one line, then bar on next line
@@ -158,7 +162,13 @@ export function formatQuotaRows(params: {
     resetIso: string | undefined,
     remaining: number,
     rightSummary?: string,
-    entry?: { percentRemaining?: number; resetTimeIso?: string; label?: string; name?: string },
+    entry?: {
+      percentRemaining?: number;
+      resetTimeIso?: string;
+      label?: string;
+      name?: string;
+      quiet?: boolean;
+    },
   ) => {
     const displayedPercent = resolveDisplayedPercent(remaining, params.percentDisplayMode);
     const percentLabel = formatDisplayedPercentLabel(remaining, params.percentDisplayMode);
@@ -218,7 +228,10 @@ export function formatQuotaRows(params: {
     );
 
     // Line 2: bar + displayed percentage
-    const barCell = bar(displayedPercent, barWidth);
+    const barCell = bar(displayedPercent, barWidth, {
+      theme: barTheme,
+      quiet: entry?.quiet === true,
+    });
     const suffixCell = padLeft(visibleBarSuffix, percentValueCol);
     const barLine = [barCell, suffixCell].join(separator);
     lines.push(barLine);

@@ -7,7 +7,11 @@
  * - quota-command-format.ts (/quota command)
  */
 
+import { type BarThemeDefinition, getBarTheme } from "./bar-theme.js";
 import type { PercentDisplayMode } from "./types.js";
+
+/** Left partial blocks by filled eighths (index 1-7; 0 and 8 are whole cells). */
+const PARTIAL_LEFT_BLOCKS = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉", ""] as const;
 
 /**
  * Clamp a number to an integer within [min, max].
@@ -43,12 +47,40 @@ export function padLeft(str: string, width: number): string {
 
 /**
  * Render a progress bar of filled/empty blocks.
+ *
+ * The default theme (full block on light shade, whole-cell rounding) is
+ * byte-identical to the historical bar. Themes may swap glyphs and, with
+ * `partial`, spend the trailing filled cell on left partial blocks for
+ * sub-cell precision. Quiet rows render the theme's quieter filled glyph,
+ * which reads dimmed even where color is unavailable.
  */
-export function bar(percentRemaining: number, width: number): string {
-  const p = clampInt(percentRemaining, 0, 100);
-  const filled = Math.round((p / 100) * width);
-  const empty = width - filled;
-  return "█".repeat(filled) + "░".repeat(empty);
+export function bar(
+  percentRemaining: number,
+  width: number,
+  options?: { theme?: BarThemeDefinition; quiet?: boolean },
+): string {
+  const theme = options?.theme ?? getBarTheme();
+  const fillGlyph = options?.quiet ? theme.quietFilled : theme.filled;
+
+  if (!theme.partial) {
+    // Whole-cell rounding over the integer percent, byte-identical to the
+    // historical bar.
+    const p = clampInt(percentRemaining, 0, 100);
+    const filled = Math.round((p / 100) * width);
+    return fillGlyph.repeat(filled) + theme.empty.repeat(width - filled);
+  }
+
+  // Partial themes keep fractional percents: truncating to an integer
+  // would discard the sub-cell precision the partial blocks exist to show.
+  const p = Number.isFinite(percentRemaining) ? Math.max(0, Math.min(100, percentRemaining)) : 0;
+  const exact = (p / 100) * width;
+  const whole = Math.floor(exact);
+  const eighths = Math.round((exact - whole) * 8);
+  const fullCells = whole + (eighths === 8 ? 1 : 0);
+  const partial = eighths === 0 || eighths === 8 ? "" : PARTIAL_LEFT_BLOCKS[eighths]!;
+  const partialCells = partial ? 1 : 0;
+  const empty = Math.max(0, width - fullCells - partialCells);
+  return fillGlyph.repeat(Math.min(fullCells, width)) + partial + theme.empty.repeat(empty);
 }
 
 /**

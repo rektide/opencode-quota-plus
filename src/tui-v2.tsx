@@ -227,6 +227,7 @@ async function getQuotaMessage(
             style: resolveQuotaFormatStyle(config.formatStyle),
             percentDisplayMode: config.percentDisplayMode,
             resetTimeDecimals: config.resetTimeDecimals,
+            barTheme: config.barTheme,
             sessionTokens: data?.sessionTokens,
           })
         : config.showOnBothFail && data?.errors.length
@@ -388,6 +389,7 @@ async function getSidebarQuotaSections(
         percentDisplayMode: config.percentDisplayMode,
         resetTimeDecimals: config.resetTimeDecimals,
         showProRataIndicator: config.showProRataIndicator,
+        barTheme: config.barTheme,
       },
     }),
     activeProviderCount,

@@ -362,6 +362,7 @@ export async function runCliShowCommand(options: RunCliShowCommandOptions = {}):
       accountingDetail: config.accountingDetail,
       resetTimeDecimals: config.resetTimeDecimals,
       showProRataIndicator: config.showProRataIndicator,
+      barTheme: config.barTheme,
     });
 
     if (!output.trim()) {

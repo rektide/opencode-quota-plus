@@ -9,6 +9,7 @@
 
 import { existsSync } from "fs";
 import { join } from "path";
+import { BAR_THEMES, type BarThemeId, isBarThemeId } from "./bar-theme.js";
 import { getEffectiveConfigRoot } from "./config-file-utils.js";
 import { parseEntryVisibilityRule } from "./entry-visibility.js";
 import { isResetTimeDecimals } from "./format-utils.js";
@@ -71,6 +72,7 @@ export const QUOTA_TOAST_SETTING_SOURCE_KEYS = [
   "onlyCurrentModel",
   "showSessionTokens",
   "sessionTokenScope",
+  "barTheme",
   "hiddenEntries",
   "quietEntries",
   "tuiSidebarPanel.enabled",
@@ -191,6 +193,7 @@ type ValidatedQuotaToastPatch = {
   onlyCurrentModel?: boolean;
   showSessionTokens?: boolean;
   sessionTokenScope?: SessionTokenScope;
+  barTheme?: BarThemeId;
   hiddenEntries?: string[];
   quietEntries?: string[];
   tuiSidebarPanel?: TuiSidebarPanelPatch;
@@ -896,6 +899,14 @@ function extractValidatedQuotaToastPatch(
     }
   }
 
+  if (hasOwnKey(quotaToastConfig, "barTheme")) {
+    if (isBarThemeId(quotaToastConfig.barTheme)) {
+      patch.barTheme = quotaToastConfig.barTheme;
+    } else {
+      reportIssue?.("barTheme", `expected one of: ${Object.keys(BAR_THEMES).join(", ")}`);
+    }
+  }
+
   for (const key of ["hiddenEntries", "quietEntries"] as const) {
     if (hasOwnKey(quotaToastConfig, key)) {
       const patterns = extractEntryVisibilityPatterns(quotaToastConfig[key]);
@@ -1137,6 +1148,11 @@ function applyValidatedQuotaToastPatch(
   if (hasOwnKey(patch, "sessionTokenScope")) {
     config.sessionTokenScope = patch.sessionTokenScope!;
     applySettingSource(settingSources, "sessionTokenScope", sourcePath);
+  }
+
+  if (hasOwnKey(patch, "barTheme")) {
+    config.barTheme = patch.barTheme!;
+    applySettingSource(settingSources, "barTheme", sourcePath);
   }
 
   if (hasOwnKey(patch, "hiddenEntries")) {
