@@ -18,8 +18,10 @@ import {
   type QuotaSessionModelContext,
   resolveQuotaRuntimeContext,
 } from "./lib/quota-runtime-context.js";
-import { createTuiV2QuotaClient } from "./lib/tui-v2-client.js";
+import { buildCompactQuotaStatusLine } from "./lib/tui-compact-format.js";
 import { buildSidebarQuotaPanelLines } from "./lib/tui-sidebar-format.js";
+import { createTuiV2QuotaClient } from "./lib/tui-v2-client.js";
+import type { QuotaToastConfig } from "./lib/types.js";
 
 const terminalForeground = RGBA.defaultForeground();
 
