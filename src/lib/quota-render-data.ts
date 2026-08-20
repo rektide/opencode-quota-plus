@@ -10,6 +10,10 @@ import type {
   SessionTokensData,
 } from "./entries.js";
 import { cloneQuotaToastEntry } from "./entries.js";
+
+import { isPercentEntry } from "./entries.js";
+import { applyEntryVisibilityToEntries, resolveEntryVisibilityPolicy } from "./entry-visibility.js";
+import { formatGroupedHeader } from "./grouped-header-format.js";
 import {
   getQuotaProviderDisplayLabel,
   getQuotaProviderIdsForRuntimeId,
@@ -538,9 +542,30 @@ export async function collectQuotaRenderData(params: {
     bypassCache: params.bypassProviderCache,
   });
 
+  // Entry visibility applies after fetch and before style projection so
+  // hidden rows cannot win single-window selection and quiet rows keep
+  // their flag through every projection. /quota_status live probes and the
+  // JSON export keep reporting unfiltered rows.
+  const { policy: visibilityPolicy } = resolveEntryVisibilityPolicy({
+    hidden: params.config.hiddenEntries,
+    quiet: params.config.quietEntries,
+  });
+  const hasVisibilityRules =
+    visibilityPolicy.hidden.length > 0 || visibilityPolicy.quiet.length > 0;
+  const visibleResults = hasVisibilityRules
+    ? results.map((result, index) => ({
+        ...result,
+        entries: applyEntryVisibilityToEntries({
+          providerId: active[index]!.id,
+          entries: result.entries,
+          policy: visibilityPolicy,
+        }).entries,
+      }))
+    : results;
+
   const style = params.formatStyle ?? params.config.formatStyle;
-  const entries = projectQuotaProviderResults(results, style, params.config.accountingDetail);
-  const errors = results.flatMap((result) => result.errors);
+  const entries = projectQuotaProviderResults(visibleResults, style, params.config.accountingDetail);
+  const errors = visibleResults.flatMap((result) => result.errors);
   const attemptedAny = results.some((result) => result.attempted);
 
   let hasExplicitProviderIssues = false;
@@ -591,7 +616,7 @@ export async function collectQuotaRenderData(params: {
     const allWindowsEntries =
       style === "allWindows"
         ? entries
-        : projectQuotaProviderResults(results, "allWindows", params.config.accountingDetail);
+        : projectQuotaProviderResults(visibleResults, "allWindows", params.config.accountingDetail);
     allWindowsData = packageQuotaRenderData({
       entries: allWindowsEntries,
       errors: [...errors],
@@ -601,7 +626,7 @@ export async function collectQuotaRenderData(params: {
     if (style === "allWindows") {
       singleWindowData = packageQuotaRenderData({
         entries: projectQuotaProviderResults(
-          results,
+          visibleResults,
           "singleWindow",
           params.config.accountingDetail,
         ),
@@ -617,7 +642,9 @@ export async function collectQuotaRenderData(params: {
     active,
     providerResults: active.map((provider, index) => ({
       providerId: provider.id,
-      result: results[index]!,
+      // Reset notifications and other stateful observers see the same
+      // filtered rows the user sees: a hidden window should not toast.
+      result: visibleResults[index]!,
     })),
     attemptedAny,
     hasExplicitProviderIssues,

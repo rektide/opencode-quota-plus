@@ -127,6 +127,8 @@ export interface GroupedQuotaEntryMeta {
   right?: string;
   /** Optional stable row priority within a group; lower values render first. */
   sortPriority?: number;
+  /** Display hint set by entry-visibility rules: render this row subdued. */
+  quiet?: boolean;
 }
 
 type SemanticGroupedQuotaEntryMeta = Omit<GroupedQuotaEntryMeta, "semantic"> & {

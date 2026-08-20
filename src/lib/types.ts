@@ -197,6 +197,19 @@ export interface QuotaToastConfig {
   /** Sessions included in the displayed session input/output token totals. */
   sessionTokenScope: SessionTokenScope;
 
+  /**
+   * Entry-visibility patterns (e.g. "zai:mcp", "deepseek:balance") whose
+   * matching rows are removed from every quota display surface. JSON export
+   * and /quota_status diagnostics keep reporting them.
+   */
+  hiddenEntries: string[];
+
+  /**
+   * Entry-visibility patterns whose matching rows render subdued instead of
+   * hidden, on surfaces that support per-row styling (TUI sidebar).
+   */
+  quietEntries: string[];
+
   /** TUI sidebar panel visibility when the TUI plugin is installed. */
   tuiSidebarPanel: TuiSidebarPanelConfig;
 
@@ -269,6 +282,8 @@ export const DEFAULT_CONFIG: QuotaToastConfig = {
   onlyCurrentModel: false,
   showSessionTokens: true,
   sessionTokenScope: "current",
+  hiddenEntries: [],
+  quietEntries: [],
   tuiSidebarPanel: {
     enabled: true,
   },
