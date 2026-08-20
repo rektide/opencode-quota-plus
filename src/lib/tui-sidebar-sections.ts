@@ -40,6 +40,32 @@ export interface SidebarQuotaSection {
   meta?: boolean;
 }
 
+export type SidebarQuotaFlatLine = {
+  line: string;
+  quiet: boolean;
+};
+
+/**
+ * Flattens sections to display lines, inserting a blank separator line
+ * between sections — matching the pre-sectioned panel output where
+ * providers, error rows, and session tokens were visually grouped.
+ */
+export function flattenSidebarQuotaSections(
+  sections: readonly SidebarQuotaSection[],
+): SidebarQuotaFlatLine[] {
+  const lines: SidebarQuotaFlatLine[] = [];
+  for (const section of sections) {
+    const body: SidebarQuotaFlatLine[] = [
+      ...(section.headerLine ? [{ line: section.headerLine, quiet: false }] : []),
+      ...section.rows.flatMap((row) => row.lines.map((line) => ({ line, quiet: row.quiet }))),
+    ];
+    if (body.length === 0) continue;
+    if (lines.length > 0) lines.push({ line: "", quiet: false });
+    lines.push(...body);
+  }
+  return lines;
+}
+
 export type SidebarQuotaSectionConfig = Pick<
   QuotaToastConfig,
   "formatStyle" | "percentDisplayMode" | "resetTimeDecimals" | "showProRataIndicator"
