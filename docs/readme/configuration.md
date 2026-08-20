@@ -118,6 +118,41 @@ Session totals use only the current session by default. To include the current s
 
 This scope applies to the embedded session-token output in `/quota` on Web and TUI, popup toasts, the TUI sidebar, and the compact line below the message input. It does not change `/tokens_session` or `/tokens_session_all`; those commands keep their explicit current-session and session-tree meanings.
 
+### Hide or quiet specific rows
+
+Some providers report rows you do not care about — an MCP window, a prepaid balance. `hiddenEntries` removes matching rows from every display surface (sidebar, toasts, compact line, `/quota`), and `quietEntries` renders them subdued in the TUI sidebar instead:
+
+```jsonc
+{
+  "hiddenEntries": ["zai:mcp", "deepseek:balance"],
+  "quietEntries": ["openai:weekly"],
+}
+```
+
+Patterns are `provider[:window|accounting]`:
+
+| Pattern | Matches |
+| --- | --- |
+| `zai` | every Z.ai row |
+| `zai:mcp` | the Z.ai MCP window |
+| `zai:5h` | the Z.ai five-hour window (aliases like `five-hour` work) |
+| `deepseek:balance` | DeepSeek's balance row (accounting type) |
+| `openrouter:spend` | OpenRouter spend rows |
+| `*:mcp` | MCP windows across all providers |
+
+Provider names normalize display aliases (`z.ai` → `zai`), selectors accept quota windows (`5h`, `mcp`, `weekly`, `daily`, `monthly`, `hourly`, `rpm`, `code-review`) and accounting types (`quota`, `balance`, `budget`, `spend`, `usage`, `status`). Hidden rows also stop driving single-window picks and reset notifications. `/quota_status` diagnostics and JSON exports keep reporting every row so troubleshooting stays complete; invalid patterns are reported there per index without disabling the valid ones.
+
+OpenCode v2 hosts can also configure the plugin through its plugin entry, which takes precedence over `opencode.json`:
+
+```jsonc
+"plugins": [
+  {
+    "package": "file:///path/to/opencode-quota/dist/tui.js",
+    "options": { "hiddenEntries": ["zai:mcp"] },
+  },
+]
+```
+
 ## Custom providers
 
 A custom provider connects OpenCode Quota to a provider that is not built in, or lets you tune a maintained local estimate.
@@ -368,6 +403,8 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `resetTimeDecimals`           | unset          | Decimal places for compact reset countdowns in popup toasts, the Sidebar panel, and terminal `show`. Accepts integers `0`–`4`; unset preserves the default integer-day and half-hour-step display.                                                                                                                  |
 | `showProRataIndicator`        | `true`         | When `true`, prefix each reset countdown with a signed pro-rata burn-rate delta, for example `+25% 5.7d` (using 25 percentage points more than the linear pro-rata pace). Requires a known window duration (5h/1h/daily/weekly/monthly/yearly/RPM); otherwise omitted.                                             |
 | `onlyCurrentModel`            | `false`        | Filter quota rows to the current model/provider when that session selection can be resolved.                                                                                                                                                                                                                        |
+| `hiddenEntries`               | `[]`           | Entry-visibility patterns (`provider[:window\|accounting]`, e.g. `zai:mcp`, `deepseek:balance`, `*:mcp`) whose rows are removed from every display surface. `/quota_status` and JSON exports keep reporting them.                                                                                                    |
+| `quietEntries`                | `[]`           | Entry-visibility patterns whose rows render subdued in the TUI sidebar instead of hidden.                                                                                                                                                                                                                            |
 | `showSessionTokens`           | `true`         | Show the `Session input/output tokens` section when session token data is available. When cached input is present, the section keeps the legacy `in/out` layout and appends cached input in parentheses next to the input amount.                                                                                   |
 | `sessionTokenScope`           | `"current"`    | Choose `current` for the active session only or `tree` for the active session plus recursive descendants/subagents, counted once. Applies to `/quota`, popup toasts, the Sidebar panel, and the compact input line when `showSessionTokens` is enabled. Does not change `/tokens_session` or `/tokens_session_all`. |
 | `pricingSnapshot.source`      | `"auto"`       | Token pricing snapshot selection for `/tokens_*`: `auto`, `bundled`, or `runtime`.                                                                                                                                                                                                                                  |
