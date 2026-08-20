@@ -167,3 +167,34 @@ the report. Verified end to end against the live server list shape (see
 `.test-agent/v2-client-check/`): Z.ai 5h/MCP entries render, with the
 Claude/OpenRouter errors trailing after the working rows.
 
+## Addendum: entry visibility and sectioned sidebar (2026-08-19)
+
+Question raised: should each provider (and each quota row) become its own
+host slot? Answer: no — the host slot tree places *surfaces* via claims
+registered at setup; per-row slot claims would fight the dynamic row set
+and slots carry no config-binding for hiding. Instead the sidebar slot
+now composes **one section per provider and one row per entry**
+internally (`src/lib/tui-sidebar-sections.ts`, backed by a
+`formatGroupedQuotaEntryLines` extraction from the grouped formatter so
+rows format identically without re-emitting headers), and display
+control moved into config:
+
+- `hiddenEntries` / `quietEntries` — `provider[:window|accounting]`
+  patterns (`zai:mcp`, `deepseek:balance`, `*:mcp`), validated with
+  per-index issues, applied in `collectQuotaRenderData` after fetch and
+  before projection so hidden rows cannot win single-window selection or
+  fire reset notifications. `/quota_status` and JSON export stay
+  unfiltered.
+- OpenCode v2 plugin entry `options` (`{ package, options }` in
+  `plugins`) are read from `context.options` and applied with the
+  highest precedence, above the quota-toast sidecar and
+  `experimental.quotaToast`.
+- Quiet rows render with the host theme's `textMuted` color in the v2
+  sidebar; flat text surfaces keep them visible.
+
+Config layering discovered along the way (highest wins):
+`plugin.options` → `opencode-quota/quota-toast.json` sidecar →
+`experimental.quotaToast` in opencode.json layers. The user's live
+suppression (`zai:mcp`, `deepseek:balance`) lives in
+`~/.config/opencode/opencode-quota/quota-toast.json`.
+
