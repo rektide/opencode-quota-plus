@@ -211,3 +211,11 @@ layer the empty shade behind the sliver (one glyph per cell), so it
 notches shaded tracks and suits plain ones. Visual survey script:
 `.test-agent/v2-client-check/bar-themes.mjs`.
 
+The theme then grew composable: a spec is characters plus an optional
+color layer (`["squares", "quiet"]`), and rule lists apply conditionally
+with last-matching-wins. `quiet` became just a color (the host's
+`textMuted`), decoupled from glyph choice; any host theme token, CSS
+name, or `#rrggbb` names a color. Conditions read per-entry metrics:
+`prorata` (signed burn-rate delta, extracted from the indicator math as
+`computeProRataDeltaPct`), `used`, `percent`, `hours` (hours until
+reset). Survey: `.test-agent/v2-client-check/bar-specs.mjs`.
