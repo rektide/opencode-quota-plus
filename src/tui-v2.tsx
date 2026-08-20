@@ -20,6 +20,7 @@ import {
 } from "./lib/quota-runtime-context.js";
 import { buildCompactQuotaStatusLine } from "./lib/tui-compact-format.js";
 import { buildSidebarQuotaPanelLines } from "./lib/tui-sidebar-format.js";
+import { buildSidebarQuotaSections, type SidebarQuotaSection } from "./lib/tui-sidebar-sections.js";
 import { createTuiV2QuotaClient } from "./lib/tui-v2-client.js";
 import type { QuotaToastConfig } from "./lib/types.js";
 
@@ -58,6 +59,13 @@ type SlotClaim<Path extends SlotPath = SlotPath> = Path extends SlotPath
 
 type TuiContext = {
   client: unknown;
+  options?: Record<string, unknown>;
+  theme?: {
+    current?: {
+      text?: RGBA;
+      textMuted?: RGBA;
+    };
+  };
   data: {
     on: (event: string, handler: (event: TuiEvent) => void) => () => void;
     session: {
@@ -149,6 +157,7 @@ async function collectQuotaForSession(
     sessionID,
     resolveSessionMeta: (id) => getSessionModelMeta(context, id),
     includeSessionMeta: (config) => config.onlyCurrentModel,
+    pluginOptions: context.options,
   });
   const config = runtime.config;
   const formatStyle = resolveQuotaFormatStyle(config.formatStyle);
@@ -322,6 +331,7 @@ async function runQuotaCommand(
       roots: { fallbackDirectory: process.cwd() },
       sessionID,
       resolveSessionMeta: (id) => getSessionModelMeta(context, id),
+      pluginOptions: context.options,
     });
     if (result.state === "noop") return;
     const alert = context.ui.dialog.alert({ title: result.title, message: result.output });
@@ -350,6 +360,36 @@ function registerQuotaCommands(context: TuiContext, getSessionID: () => string |
   }));
 }
 
+async function getSidebarQuotaSections(
+  context: TuiContext,
+  sessionID: string,
+): Promise<
+  | {
+      sections: SidebarQuotaSection[];
+      activeProviderCount: number;
+    }
+  | undefined
+> {
+  const { config, data, activeProviderCount } = await collectQuotaForSession(context, sessionID);
+  if (!config.enabled || !config.tuiSidebarPanel.enabled) return;
+  if (!data) return;
+  const sidebarStyle = config.tuiSidebarPanel.formatStyle
+    ? resolveQuotaFormatStyle(config.tuiSidebarPanel.formatStyle)
+    : resolveQuotaFormatStyle(config.formatStyle);
+  return {
+    sections: buildSidebarQuotaSections({
+      data,
+      config: {
+        formatStyle: sidebarStyle,
+        percentDisplayMode: config.percentDisplayMode,
+        resetTimeDecimals: config.resetTimeDecimals,
+        showProRataIndicator: config.showProRataIndicator,
+      },
+    }),
+    activeProviderCount,
+  };
+}
+
 function SidebarQuotaView(props: {
   context: TuiContext;
   sessionID: string;
@@ -358,12 +398,20 @@ function SidebarQuotaView(props: {
   props.setActiveSessionID(props.sessionID);
   const [open, setOpen] = createSignal(true);
   const [quota, setQuota] = createSignal<
-    { message: string; duration: number; activeProviderCount: number } | undefined
+    { sections: SidebarQuotaSection[]; activeProviderCount: number } | undefined
   >(undefined);
-  const lines = () => quota()?.message.split("\n") ?? [];
-  const expandable = () => lines().length > 2;
+  const quietForeground = () => props.context.theme?.current?.textMuted ?? terminalForeground;
+  const lineCount = () =>
+    quota()?.sections.reduce(
+      (count, section) =>
+        count +
+        (section.headerLine ? 1 : 0) +
+        section.rows.reduce((n, row) => n + row.lines.length, 0),
+      0,
+    ) ?? 0;
+  const expandable = () => lineCount() > 2;
   const refresh = () => {
-    void getQuotaMessage(props.context, props.sessionID, "sidebar")
+    void getSidebarQuotaSections(props.context, props.sessionID)
       .then((result) => setQuota(result))
       .catch(reportFailure);
   };
@@ -391,13 +439,28 @@ function SidebarQuotaView(props: {
         </text>
       </box>
       <Show when={quota()} fallback={<text fg={terminalForeground}>No quota data available</text>}>
-        <Show when={!expandable() || open()}>
-          {lines().map((line) => (
-            <text fg={terminalForeground} wrapMode="none">
-              {line || " "}
-            </text>
-          ))}
-        </Show>
+        {(state: () => NonNullable<ReturnType<typeof quota>>) => (
+          <Show when={!expandable() || open()}>
+            {state().sections.map((section) => (
+              <box flexDirection="column">
+                <Show when={section.headerLine}>
+                  {(header: () => string) => (
+                    <text fg={terminalForeground} wrapMode="none">
+                      {header()}
+                    </text>
+                  )}
+                </Show>
+                {section.rows.map((row) =>
+                  row.lines.map((line) => (
+                    <text fg={row.quiet ? quietForeground() : terminalForeground} wrapMode="none">
+                      {line || " "}
+                    </text>
+                  )),
+                )}
+              </box>
+            ))}
+          </Show>
+        )}
       </Show>
     </box>
   );
