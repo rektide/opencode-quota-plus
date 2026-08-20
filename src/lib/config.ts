@@ -9,7 +9,7 @@
 
 import { existsSync } from "fs";
 import { join } from "path";
-import { BAR_THEMES, type BarThemeId, isBarThemeId } from "./bar-theme.js";
+import { type BarThemeSpec, validateBarThemeSpec } from "./bar-theme.js";
 import { getEffectiveConfigRoot } from "./config-file-utils.js";
 import { parseEntryVisibilityRule } from "./entry-visibility.js";
 import { isResetTimeDecimals } from "./format-utils.js";
@@ -193,7 +193,7 @@ type ValidatedQuotaToastPatch = {
   onlyCurrentModel?: boolean;
   showSessionTokens?: boolean;
   sessionTokenScope?: SessionTokenScope;
-  barTheme?: BarThemeId;
+  barTheme?: BarThemeSpec;
   hiddenEntries?: string[];
   quietEntries?: string[];
   tuiSidebarPanel?: TuiSidebarPanelPatch;
@@ -900,10 +900,12 @@ function extractValidatedQuotaToastPatch(
   }
 
   if (hasOwnKey(quotaToastConfig, "barTheme")) {
-    if (isBarThemeId(quotaToastConfig.barTheme)) {
-      patch.barTheme = quotaToastConfig.barTheme;
-    } else {
-      reportIssue?.("barTheme", `expected one of: ${Object.keys(BAR_THEMES).join(", ")}`);
+    const validatedBarTheme = validateBarThemeSpec(quotaToastConfig.barTheme);
+    if (validatedBarTheme.spec !== undefined || validatedBarTheme.issues.length === 0) {
+      patch.barTheme = validatedBarTheme.spec ?? "classic";
+    }
+    for (const issue of validatedBarTheme.issues) {
+      reportIssue?.("barTheme", issue.message);
     }
   }
 

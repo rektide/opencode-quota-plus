@@ -3,11 +3,12 @@
  */
 
 import { type AccountingRowInterpretation, interpretAccountingRow } from "./accounting-format.js";
-import { type BarThemeId, getBarTheme } from "./bar-theme.js";
+import { type BarThemeSpec, resolveBarTheme } from "./bar-theme.js";
 import type { QuotaToastEntry, QuotaToastError, SessionTokensData } from "./entries.js";
 import { isPercentEntry } from "./entries.js";
 import {
   bar,
+  barThemeMetricsForEntry,
   DISPLAYED_PERCENT_LABEL_WIDTH,
   formatDisplayedPercentLabel,
   formatProRataIndicator,
@@ -105,7 +106,7 @@ export function formatQuotaRows(params: {
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
   showProRataIndicator?: boolean;
-  barTheme?: BarThemeId;
+  barTheme?: BarThemeSpec;
   sessionTokens?: SessionTokensData;
 }): string {
   const styleDefinition = getQuotaFormatStyleDefinition(params.style);
@@ -126,7 +127,6 @@ export function formatQuotaRows(params: {
 
   const layout = params.layout ?? { maxWidth: 50, narrowAt: 42, tinyAt: 32 };
   const maxWidth = layout.maxWidth;
-  const barTheme = getBarTheme(params.barTheme);
 
   // Responsive columns.
   // - default: name + time on one line, then bar on next line
@@ -229,7 +229,10 @@ export function formatQuotaRows(params: {
 
     // Line 2: bar + displayed percentage
     const barCell = bar(displayedPercent, barWidth, {
-      theme: barTheme,
+      theme: resolveBarTheme(
+        params.barTheme,
+        barThemeMetricsForEntry(entry ?? { percentRemaining: remaining }),
+      ).chars,
       quiet: entry?.quiet === true,
     });
     const suffixCell = padLeft(visibleBarSuffix, percentValueCol);

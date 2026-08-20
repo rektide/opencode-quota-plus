@@ -7,7 +7,7 @@
  * - quota-command-format.ts (/quota command)
  */
 
-import { type BarThemeDefinition, getBarTheme } from "./bar-theme.js";
+import { type BarThemeDefinition, type BarThemeMetrics, getBarTheme } from "./bar-theme.js";
 import type { PercentDisplayMode } from "./types.js";
 
 /** Left partial blocks by filled eighths (index 1-7; 0 and 8 are whole cells). */
@@ -300,22 +300,80 @@ export function inferWindowDurationMs(params: { label?: string; name?: string })
 }
 
 /**
+ * Signed pro-rata burn-rate delta in percentage points: actual usage minus
+ * the linear-pace expected usage at the current elapsed fraction of the
+ * window. Positive means burning faster than pace. Undefined when the
+ * window duration is unknown or the reset time is missing/past/invalid —
+ * the same conditions that suppress the textual indicator.
+ */
+export function computeProRataDeltaPct(
+  entry: { percentRemaining: number; resetTimeIso?: string; label?: string; name?: string },
+  nowMs?: number,
+): number | undefined {
+  if (!entry.resetTimeIso) return undefined;
+
+  const durationMs = inferWindowDurationMs({ label: entry.label, name: entry.name });
+  if (durationMs === null) return undefined;
+
+  const resetMs = new Date(entry.resetTimeIso).getTime();
+  if (!Number.isFinite(resetMs)) return undefined;
+
+  const now = typeof nowMs === "number" && Number.isFinite(nowMs) ? nowMs : Date.now();
+  const remainingMs = resetMs - now;
+  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return undefined;
+
+  const elapsedMs = Math.max(0, Math.min(durationMs, durationMs - remainingMs));
+  const expectedUsagePct = (elapsedMs / durationMs) * 100;
+  const actualUsagePct = 100 - entry.percentRemaining;
+  const diffPct = actualUsagePct - expectedUsagePct;
+
+  return Number.isFinite(diffPct) ? diffPct : undefined;
+}
+
+/**
+ * Hours until a reset time; undefined when missing, invalid, or past.
+ */
+export function hoursUntilReset(
+  resetTimeIso: string | undefined,
+  nowMs?: number,
+): number | undefined {
+  if (!resetTimeIso) return undefined;
+  const resetMs = new Date(resetTimeIso).getTime();
+  if (!Number.isFinite(resetMs)) return undefined;
+  const now = typeof nowMs === "number" && Number.isFinite(nowMs) ? nowMs : Date.now();
+  const remainingMs = resetMs - now;
+  return Number.isFinite(remainingMs) && remainingMs > 0 ? remainingMs / 3_600_000 : undefined;
+}
+
+/**
+ * Metrics a bar theme spec's conditions evaluate against, derived from one
+ * quota entry.
+ */
+export function barThemeMetricsForEntry(
+  entry: { percentRemaining: number; resetTimeIso?: string; label?: string; name?: string },
+  nowMs?: number,
+): BarThemeMetrics {
+  return {
+    percentRemaining: entry.percentRemaining,
+    usedPercent: 100 - entry.percentRemaining,
+    ...(computeProRataDeltaPct(entry, nowMs) !== undefined
+      ? { proRataDeltaPct: computeProRataDeltaPct(entry, nowMs) }
+      : {}),
+    ...(hoursUntilReset(entry.resetTimeIso, nowMs) !== undefined
+      ? { hoursRemaining: hoursUntilReset(entry.resetTimeIso, nowMs) }
+      : {}),
+  };
+}
+
+/**
  * Compute and format the pro-rata burn-rate indicator for a quota entry.
  *
  * Returns a string like "+25%" / "-10%" / "+0%", or "" when the indicator
  * is disabled, the window duration is unknown, or the reset time is
  * missing/invalid.
  *
- * Math:
- *   remainingMs        = resetTime - now           (must be > 0)
- *   durationMs         = inferred window total
- *   elapsedMs          = durationMs - remainingMs   (clamped to [0, durationMs])
- *   expectedUsagePct   = elapsedMs / durationMs * 100
- *   actualUsagePct     = 100 - percentRemaining
- *   diffPct            = actualUsagePct - expectedUsagePct
- *
- * The returned value is always signed ("+" for non-negative, "-" for
- * negative) and rounded to the nearest integer percent.
+ * The value is always signed ("+" for non-negative, "-" for negative) and
+ * rounded to the nearest integer percent.
  */
 export function formatProRataIndicator(
   entry: { percentRemaining?: number; resetTimeIso?: string; label?: string; name?: string },
