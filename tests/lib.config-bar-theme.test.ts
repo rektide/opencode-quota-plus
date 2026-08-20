@@ -86,7 +86,7 @@ describe("barTheme config", () => {
       expect.objectContaining({
         path: "client.config.get",
         key: "barTheme",
-        message: expect.stringContaining("classic"),
+        message: expect.stringContaining("sparkles"),
       }),
     ]);
   });
