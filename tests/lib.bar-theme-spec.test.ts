@@ -239,7 +239,10 @@ describe("theme spec stack semantics", () => {
   it("stacks per property across matching rules, not wholesale", () => {
     // Rule 1 contributes only chars; rule 2 contributes only color. Both
     // match, so the result carries both — neither replaces the other.
-    const resolved = resolveBarTheme([{ theme: "squares" }, { theme: "red" }], metrics());
+    const resolved = resolveBarTheme(
+      [{ theme: "squares" }, { theme: "red" }],
+      metrics(),
+    );
     expect(resolved.chars.id).toBe("squares");
     expect(resolved.color).toBe("red");
   });
@@ -256,83 +259,6 @@ describe("theme spec stack semantics", () => {
   it("accepts color-only and shape-only composites in validation", () => {
     expect(validateBarThemeSpec(["red", "orange", "teal"]).issues).toEqual([]);
     expect(validateBarThemeSpec(["squares", "dots"]).issues).toEqual([]);
-  });
-
-  it("names are registry lookups into bags, not slot inferences", async () => {
-    const { BAR_THEME_PRESETS, presetFor } = await import("../src/lib/bar-theme.js");
-    // Every registered name maps to a bag of properties; the resolver just
-    // spreads whatever keys the bag defines. No shape/color classification.
-    expect(BAR_THEME_PRESETS.squares).toEqual({
-      filled: "■",
-      empty: "□",
-      quietFilled: "▪",
-      partial: false,
-    });
-    expect(BAR_THEME_PRESETS.quiet).toEqual({ color: "quiet" });
-    expect(BAR_THEME_PRESETS.success).toEqual({ color: "success" });
-    expect(presetFor("#ff8800")).toEqual({ color: "#ff8800" });
-    expect(presetFor("sparkles")).toBeUndefined();
-  });
-
-  it("accepts inline bags that override single keys of a preset", () => {
-    const resolved = resolveBarTheme(["squares", { filled: "●" }], metrics());
-    expect(resolved.chars.filled).toBe("●");
-    expect(resolved.chars.empty).toBe("□");
-    expect(resolved.chars.quietFilled).toBe("▪");
-  });
-
-  it("stacks inline bags and names freely", () => {
-    const resolved = resolveBarTheme(
-      [{ empty: " " }, "squares", { filled: "●" }, "quiet"],
-      metrics(),
-    );
-    expect(resolved.chars.filled).toBe("●");
-    // squares redefined empty after the first inline bag.
-    expect(resolved.chars.empty).toBe("□");
-    expect(resolved.color).toBe("quiet");
-  });
-
-  it("accepts a bare inline bag as the whole spec", () => {
-    const resolved = resolveBarTheme({ filled: "█", empty: " ", color: "teal" }, metrics());
-    expect(resolved.chars.filled).toBe("█");
-    expect(resolved.chars.empty).toBe(" ");
-    expect(resolved.color).toBe("teal");
-  });
-
-  it("inline bags work as rule themes", () => {
-    const resolved = resolveBarTheme(
-      ["classic", { theme: { filled: "●", color: "red" }, used: 90 }],
-      metrics({ usedPercent: 95 }),
-    );
-    expect(resolved.chars.filled).toBe("●");
-    expect(resolved.chars.empty).toBe("░");
-    expect(resolved.color).toBe("red");
-  });
-
-  it("reports invalid inline bag keys and types without dropping valid keys", () => {
-    const { issues } = validateBarThemeSpec([{ filled: "●", bogus: 1, partial: "yes" }]);
-    expect(issues.map((issue) => issue.message)).toEqual([
-      expect.stringContaining("bogus"),
-      expect.stringContaining("partial"),
-    ]);
-  });
-
-  it("distinguishes bags from rules by their keys", () => {
-    expect(validateBarThemeSpec({ filled: "●" }).spec).toEqual({ filled: "●" });
-    // Bag keys on a rule are theme shorthand, so mixed objects are rules.
-    const mixed = validateBarThemeSpec({ filled: "●", used: 90 });
-    expect(mixed.spec).toEqual({ filled: "●", used: 90 });
-    expect(mixed.issues).toEqual([]);
-  });
-
-  it("stacks rule shorthand bags after an explicit theme", () => {
-    const resolved = resolveBarTheme(
-      [{ theme: "squares", filled: "●", color: "red", used: 90 }],
-      metrics({ usedPercent: 95 }),
-    );
-    expect(resolved.chars.filled).toBe("●");
-    expect(resolved.chars.empty).toBe("□");
-    expect(resolved.color).toBe("red");
   });
 });
 

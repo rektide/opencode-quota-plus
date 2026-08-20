@@ -118,6 +118,70 @@ Session totals use only the current session by default. To include the current s
 
 This scope applies to the embedded session-token output in `/quota` on Web and TUI, popup toasts, the TUI sidebar, and the compact line below the message input. It does not change `/tokens_session` or `/tokens_session_all`; those commands keep their explicit current-session and session-tree meanings.
 
+### Choose the bar glyphs
+
+```jsonc
+{
+  "barTheme": "rings",
+}
+```
+
+| Theme | Filled / empty | Quiet filled | Look |
+| --- | --- | --- | --- |
+| `classic` (default) | `█` / `░` | `▓` | `██████████░░░░░░░░░░` |
+| `solid` | `█` / space | `▒` | `██████████          ` |
+| `shade` | `▓` / `░` | `▒` | `▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░` |
+| `soft` | `▒` / `░` | `░` | `▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░` |
+| `smooth` | `█` / `░` | `▓` | `████████▉░░░░░░░░░░░` |
+| `dots` | `●` / `·` | `◐` | `●●●●●●●●●●··········` |
+| `rings` | `●` / `○` | `◐` | `●●●●●●●●●●○○○○○○○○○○` |
+| `squares` | `■` / `□` | `▪` | `■■■■■■■■■■□□□□□□□□□□` |
+| `smol` | `▪` / `·` | `▫` | `▪▪▪▪▪▪▪▪▪▪··········` |
+| `heavy` | `━` / `┄` | `─` | `━━━━━━━━━━┄┄┄┄┄┄┄┄┄┄` |
+| `light` | `─` / `·` | `┄` | `──────────··········` |
+| `halves` | `◐` / `·` | `◑` | `◐◐◐◐◐◐◐◐◐◐··········` |
+
+`smooth` spends the trailing filled cell on partial blocks (`▏▎▍▌▋▊▉`) for sub-cell precision. A partial-block cell cannot also carry the empty glyph's shade behind it — the sliver draws in the foreground color over plain terminal background, which reads as a notch in a shaded track; it looks most natural with plain-background themes like `solid`. Quiet rows swap the filled glyph for the theme's quieter character, which dims them even on surfaces without per-row color.
+
+#### Composing: themes are property stacks
+
+A theme is a bag of properties. Today the bag has two properties — the character set and the color — but they are not a pair: each name in an array sets one property, entries merge left to right, and the **last value per property wins**. Repeat a property, stack colors on colors, whatever:
+
+```jsonc
+{ "barTheme": ["squares", "quiet"] }          // chars + color
+{ "barTheme": ["red", "orange", "teal"] }     // teal wins
+{ "barTheme": ["squares", "dots", "teal"] }   // dots + teal
+{ "barTheme": "teal" }                        // lone color, default chars
+```
+
+A bare string names one property; which one is inferred from the name (a character theme id sets `chars`, anything color-like sets `color`). Rule lists stack the same way — each matching rule merges its defined properties over the accumulated result, so a rule that only names a color never resets the shape, and vice versa.
+
+Color names resolve in order: OpenCode theme tokens (`text`, `textMuted`, `success`, `warning`, `error`, `primary`, `accent`, `syntaxKeyword`, `diffAdded`, …), then common CSS names (`red`, `orange`, `teal`, …), then `#rrggbb`/`#rgb` hex. Colors apply to the TUI sidebar row; surfaces without per-row color (toasts, terminal `show`) keep the glyphs and ignore the color layer.
+
+#### Conditional themes
+
+A list containing rule objects becomes a rule list: entries stack the same way composites do — conditions combine with AND, each matching rule merges its defined properties over the accumulated result (a color-only rule never resets the shape), and the **last match wins per property** (read base-first, override-last):
+
+```jsonc
+{
+  "barTheme": [
+    "classic",
+    { "theme": ["shade", "quiet"], "used": 30 },
+    { "theme": ["dots", "orange"], "used": 60 },
+    { "theme": ["squares", "red"], "used": 85 }
+  ]
+}
+```
+
+| Condition | Meaning |
+| --- | --- |
+| `prorata: 10` | pro-rata burn-rate delta >= +10 points (signed; `-10` means <= -10) |
+| `used: 60` | quota used >= 60% |
+| `percent: -20` | remaining <= 20% (negative = below the magnitude) |
+| `hours: 1` | >= 1h until reset; `hours: -1` means <= 1h left |
+
+For unsigned conditions (`used`, `percent`, `hours`), a negative threshold means "at or below the magnitude". `prorata` is signed, so its thresholds bound at the signed value. Conditions whose data is missing for a row (no pro-rata delta without a known window, no `hours` without a future reset time) never match, so those rules simply skip the row.
+
 ### Hide or quiet specific rows
 
 Some providers report rows you do not care about — an MCP window, a prepaid balance. `hiddenEntries` removes matching rows from every display surface (sidebar, toasts, compact line, `/quota`), and `quietEntries` renders them subdued in the TUI sidebar instead:
@@ -402,6 +466,7 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `accountingDetail`            | `summary`      | Provider-neutral accounting detail across human surfaces: `summary` keeps primary rows; `detailed` also admits supplementary rows and fuller basis detail when width allows. Independent of `formatStyle` and `percentDisplayMode`.                                                                                |
 | `resetTimeDecimals`           | unset          | Decimal places for compact reset countdowns in popup toasts, the Sidebar panel, and terminal `show`. Accepts integers `0`–`4`; unset preserves the default integer-day and half-hour-step display.                                                                                                                  |
 | `showProRataIndicator`        | `true`         | When `true`, prefix each reset countdown with a signed pro-rata burn-rate delta, for example `+25% 5.7d` (using 25 percentage points more than the linear pro-rata pace). Requires a known window duration (5h/1h/daily/weekly/monthly/yearly/RPM); otherwise omitted.                                             |
+| `barTheme`                    | `"classic"`    | Bar theme spec: a property stack of character themes, colors, and conditional rules — entries merge left to right, last value per property wins. Characters: `classic`, `solid`, `shade`, `soft`, `smooth`, `dots`, `rings`, `squares`, `smol`, `heavy`, `light`, `halves`. Colors: host theme tokens, CSS names, or `#rrggbb`. Conditions: `prorata`, `used`, `percent`, `hours`. |
 | `onlyCurrentModel`            | `false`        | Filter quota rows to the current model/provider when that session selection can be resolved.                                                                                                                                                                                                                        |
 | `hiddenEntries`               | `[]`           | Entry-visibility patterns (`provider[:window\|accounting]`, e.g. `zai:mcp`, `deepseek:balance`, `*:mcp`) whose rows are removed from every display surface. `/quota_status` and JSON exports keep reporting them.                                                                                                    |
 | `quietEntries`                | `[]`           | Entry-visibility patterns whose rows render subdued in the TUI sidebar instead of hidden.                                                                                                                                                                                                                            |

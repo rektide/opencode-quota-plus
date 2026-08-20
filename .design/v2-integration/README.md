@@ -219,3 +219,9 @@ name, or `#rrggbb` names a color. Conditions read per-entry metrics:
 `prorata` (signed burn-rate delta, extracted from the indicator math as
 `computeProRataDeltaPct`), `used`, `percent`, `hours` (hours until
 reset). Survey: `.test-agent/v2-client-check/bar-specs.mjs`.
+Semantics note: specs are property stacks, not shape+color pairs —
+every name sets one property, arrays and rule lists merge left to
+right, and the last value per property wins (`["red", "orange",
+"teal"]` is legal and teal wins; a color-only rule never resets the
+shape). The only place shape/color distinction exists is classifying a
+bare string, which must infer its slot from the name.
