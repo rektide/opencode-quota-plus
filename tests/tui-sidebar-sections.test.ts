@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { QuotaRenderData } from "../src/lib/quota-render-data.js";
 import { buildSidebarQuotaPanelLines } from "../src/lib/tui-sidebar-format.js";
-import { buildSidebarQuotaSections } from "../src/lib/tui-sidebar-sections.js";
+import {
+  buildSidebarQuotaSections,
+  flattenSidebarQuotaSections,
+} from "../src/lib/tui-sidebar-sections.js";
 import { DEFAULT_CONFIG } from "../src/lib/types.js";
 
 const accounting = (resultType: "quota" | "balance") => ({
@@ -84,14 +87,8 @@ describe("buildSidebarQuotaSections", () => {
 
   it("flattens to the same content as the panel-lines formatter", () => {
     const sections = buildSidebarQuotaSections({ data: allWindowsData(), config });
-    const flattened = sections
-      .flatMap((section, index) => {
-        const body = [
-          ...(section.headerLine ? [section.headerLine] : []),
-          ...section.rows.flatMap((row) => row.lines),
-        ];
-        return index === 0 ? body : ["", ...body];
-      })
+    const flattened = flattenSidebarQuotaSections(sections)
+      .map((entry) => entry.line)
       .join("\n");
 
     const panel = buildSidebarQuotaPanelLines({
@@ -100,6 +97,33 @@ describe("buildSidebarQuotaSections", () => {
     }).join("\n");
 
     expect(flattened).toBe(panel);
+  });
+
+  it("inserts blank separator lines between sections", () => {
+    const sections = buildSidebarQuotaSections({ data: allWindowsData(), config });
+    const lines = flattenSidebarQuotaSections(sections).map((entry) => entry.line);
+
+    // Provider sections, the error section, and each later section are
+    // separated by exactly one blank line, matching the grouped formatter.
+    expect(lines).toEqual([
+      "[Z.ai]",
+      ...sections[0]!.rows.flatMap((row) => row.lines),
+      "",
+      "[DeepSeek]",
+      ...sections[1]!.rows.flatMap((row) => row.lines),
+      "",
+      "OpenRouter: Invalid openrouter-key-v1 response",
+    ]);
+  });
+
+  it("carries the quiet flag through flattening", () => {
+    const sections = buildSidebarQuotaSections({ data: allWindowsData(), config });
+    const flat = flattenSidebarQuotaSections(sections);
+    // MCP is the quiet row in the fixture (second row of the Z.ai section).
+    const mcpIndex = flat.findIndex((entry) => entry.line.includes("MCP"));
+    expect(flat[mcpIndex]?.quiet).toBe(true);
+    const fiveHourIndex = flat.findIndex((entry) => entry.line.includes("Five-hour"));
+    expect(flat[fiveHourIndex]?.quiet).toBe(false);
   });
 
   it("emits no provider header in singleWindow style where names carry identity", () => {

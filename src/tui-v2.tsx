@@ -20,7 +20,11 @@ import {
 } from "./lib/quota-runtime-context.js";
 import { buildCompactQuotaStatusLine } from "./lib/tui-compact-format.js";
 import { buildSidebarQuotaPanelLines } from "./lib/tui-sidebar-format.js";
-import { buildSidebarQuotaSections, type SidebarQuotaSection } from "./lib/tui-sidebar-sections.js";
+import {
+  buildSidebarQuotaSections,
+  flattenSidebarQuotaSections,
+  type SidebarQuotaSection,
+} from "./lib/tui-sidebar-sections.js";
 import { createTuiV2QuotaClient } from "./lib/tui-v2-client.js";
 import type { QuotaToastConfig } from "./lib/types.js";
 
@@ -401,15 +405,11 @@ function SidebarQuotaView(props: {
     { sections: SidebarQuotaSection[]; activeProviderCount: number } | undefined
   >(undefined);
   const quietForeground = () => props.context.theme?.current?.textMuted ?? terminalForeground;
-  const lineCount = () =>
-    quota()?.sections.reduce(
-      (count, section) =>
-        count +
-        (section.headerLine ? 1 : 0) +
-        section.rows.reduce((n, row) => n + row.lines.length, 0),
-      0,
-    ) ?? 0;
-  const expandable = () => lineCount() > 2;
+  // Flattened lines carry the blank separators between providers, error
+  // rows, and session tokens, keeping the sectioned render structurally
+  // identical to the pre-sectioned panel output.
+  const flatLines = () => flattenSidebarQuotaSections(quota()?.sections ?? []);
+  const expandable = () => flatLines().length > 2;
   const refresh = () => {
     void getSidebarQuotaSections(props.context, props.sessionID)
       .then((result) => setQuota(result))
@@ -441,23 +441,10 @@ function SidebarQuotaView(props: {
       <Show when={quota()} fallback={<text fg={terminalForeground}>No quota data available</text>}>
         {(state: () => NonNullable<ReturnType<typeof quota>>) => (
           <Show when={!expandable() || open()}>
-            {state().sections.map((section) => (
-              <box flexDirection="column">
-                <Show when={section.headerLine}>
-                  {(header: () => string) => (
-                    <text fg={terminalForeground} wrapMode="none">
-                      {header()}
-                    </text>
-                  )}
-                </Show>
-                {section.rows.map((row) =>
-                  row.lines.map((line) => (
-                    <text fg={row.quiet ? quietForeground() : terminalForeground} wrapMode="none">
-                      {line || " "}
-                    </text>
-                  )),
-                )}
-              </box>
+            {flattenSidebarQuotaSections(state().sections).map((entry) => (
+              <text fg={entry.quiet ? quietForeground() : terminalForeground} wrapMode="none">
+                {entry.line || " "}
+              </text>
             ))}
           </Show>
         )}
