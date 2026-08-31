@@ -122,7 +122,7 @@ describe("buildSidebarQuotaSections", () => {
     // MCP is the quiet row in the fixture (second row of the Z.ai section).
     const mcpIndex = flat.findIndex((entry) => entry.line.includes("MCP"));
     expect(flat[mcpIndex]?.quiet).toBe(true);
-    const fiveHourIndex = flat.findIndex((entry) => entry.line.includes("Five-hour"));
+    const fiveHourIndex = flat.findIndex((entry) => entry.line.includes("5h"));
     expect(flat[fiveHourIndex]?.quiet).toBe(false);
   });
 
