@@ -91,10 +91,13 @@ A **round** is one re-integration cycle:
 3. **Rebase** — onto the base that already contains the upstream
    reconciliation when one exists. Keep happenstance commits through
    conflict resolution (safer), then **regroup** into the argued logical
-   commits before closing — that regroup is part of the round.
+   commits before closing — that regroup is part of the round. (The 0830
+   round closed before regrouping; see its actuals.)
 4. **Verify** — biome, typecheck, build, full suite; commands and quirks in
    the [v2-integration README § Verification](/design/v2-integration/README.md#verification).
-5. **Close** — move floating bookmarks to true layer boundaries; stamp; log
+5. **Close** — move floating bookmarks to true layer boundaries; stamp;
+   restore any fossil the rebase auto-moved (jj moves bookmarks on rebased
+   commits; fossils must be pinned back to their pre-rebase commits); log
    the round's argument and actuals below; commit docs with the state.
 
 Stamp rules:
@@ -121,20 +124,51 @@ cautionary tale; resets happen at round boundaries.
 
 ## Round log
 
-### 2026-08-30 (in flight)
+### 2026-08-30
 
 - Fetch: dmmop realigned their fork with upstream through 08-23 and added
-  five commits; origin added #240 (Windows portability, 6 commits) — deferred
-  to a later round. Base chosen: `main@dmmop-v2`.
+  five commits (displayed as deletions when their force-push hid old copies —
+  expected); origin added #240 (Windows portability, 6 commits) — deferred to
+  the next round. Base chosen: `main@dmmop-v2`.
 - Shape argument: as assessed above (seven layers; two named inversions).
-- Plan: rebase happenstance stack as-is, resolve conflicts, regroup into the
-  argued layers, reset `v2` to the imported chain top, verify, close with
-  stamps `v2-20260830`, `prorata-20260830` (created although prorata is
-  content-idle — the rebase moved its commit), `slots-20260830`,
-  `integration-20260830`. `prorata`/`slots` boundaries stay semantic (the
-  indicator commit; the session-meta commit) — regrouping reassigns the
-  polish week's commits but does not move historical boundaries.
-- Actuals: *(appended at close)*
+- Actuals:
+  - 24 local commits rebased; ~12 conflict sites across 15 files resolved
+    bottom-up in `jj edit` mode (amend each conflicted commit, descendants
+    auto-rebase). One stray divergent working-copy commit (a `nnsxxlpu`
+    duplicate created by the edit-mode rebases) was abandoned.
+  - `prepare-tui-dist.mjs`: took dmmop's dual-entrypoint babel loop, kept our
+    `tui-v2.d.ts → tui.d.ts` copy.
+  - Credential rows: adopted dmmop's richer schema (id/label/active,
+    active-first ordering); our DB discovery and V2-next preference survive
+    — the primary-path test now expects `opencode-next.db`.
+  - Upstream moved the toast format call into `quota-toast-runtime.ts`; our
+    `showProRataIndicator` and `barTheme` config lines were re-applied there
+    rather than in `plugin.ts`.
+  - `formatGroupedQuotaEntryLines` (our extraction) was re-implemented on
+    upstream's `interpretAccountingRow` model — value/atomic branches,
+    percentValueCol threading, basis detail lines, and the pro-rata
+    countdown all ported; 91 formatter tests held at the port point.
+  - Boolean-entry compatibility (upstream's new `QuotaBooleanEntry`):
+    `formatProRataIndicator`, `computeProRataDeltaPct`, and
+    `BarThemeMetrics` now treat `percentRemaining` as optional.
+  - **Inversion decision**: the five-hour window label. Ours was
+    "Five-hour"; upstream pins "5h" in eight tests plus the accounting
+    aliases, and the compact label fits the narrow-toast width policy. Ours
+    yielded; the sections test was updated. Recorded here because the
+    happenstance order can't be trusted to explain this one.
+  - Verify: typecheck clean, build clean, full suite **192 files / 2296
+    tests** green (up from 1968 at the 0818 tip — upstream's tests included).
+  - Close: `v2` reset to the imported chain top (backwards move allowed —
+    the drift fix); `prorata`/`slots` rode the rebase automatically;
+    `integration` moved to the round tip. Stamps created: `v2-20260830`,
+    `prorata-20260830`, `slots-20260830`, `integration-20260830`. The 0818
+    fossils (`prorata-20260818`, `slots-20260818`, `integration-20260818`)
+    were restored to their pre-rebase commits after the rebase auto-moved
+    them — jj moves bookmarks on rebased commits; practice says fossils
+    never move, so this restore is now an explicit close step.
+  - Deferred to a follow-up: regrouping the polish-week commits into the
+    argued layers (the round closed on happenstance commits plus one merge
+    fixup), and origin's #240.
 
 ## Cross-references
 
