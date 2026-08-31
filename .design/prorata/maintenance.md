@@ -130,6 +130,19 @@ cautionary tale; resets happen at round boundaries.
 
 ## Round log
 
+### 2026-08-31 (feature: percentDecimals)
+
+- `percentDecimals` (0–2, mirroring `resetTimeDecimals`) on the presentation
+  layer: fractional percent labels (`74.4%`) and pro-rata deltas (`+2.5%`)
+  across every surface — grouped/classic rows, sidebar panel, compact status
+  line, `/quota`, `show`, and the v1 prompt bar. When set, the `used`/`left`
+  suffix drops (numeric-gauge reading, width savings); unset keeps today's
+  integer+suffix output byte-identical. Column floors move to
+  `displayedPercentLabelWidth` so alignment follows the resolution.
+- First feature landed on the swapped stack; presentation-layer placement
+  held without re-argument. Verify: typecheck clean, **2302 tests** green
+  (six new: config boundaries, formatter, compact, sidebar, `/quota`).
+
 ### 2026-08-31 (regroup round)
 
 The 0830 round's deferred regroup, executed as its own round — and then, in
