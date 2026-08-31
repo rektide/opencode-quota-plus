@@ -19,6 +19,12 @@ date-only bookmark (`v1-adapter-20260818`).
 
 ## Bookmark structure: tip, then the feature
 
+> **2026-08-31**: the live practice now lives in
+> [`/design/prorata/maintenance.md`](/design/prorata/maintenance.md) — it
+> superseded this table's rules (only-moved stamping, fossil pinning,
+> re-argued stack shape). The table below is the 08-18 snapshot and is kept
+> for its historical view of the stack.
+
 Every accepted line gets a floating tip bookmark plus an immutable dated
 snapshot:
 

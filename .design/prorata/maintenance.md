@@ -66,17 +66,23 @@ slots — it exists to match the host contract, not to enable the indicator —
 and the grouped-formatter extraction (committed *after* the slot claims)
 moved below slots, because the sectioned sidebar consumes it.
 
-### Current assessment (2026-08-30)
+### Current assessment (2026-08-31, post-swap)
 
-| Layer | Concern | Absorbs (happenstance commits) |
+| Layer (bookmark) | Concern | Absorbs (happenstance commits) |
 | --- | --- | --- |
-| `v2` import | dmmop's chain verbatim | their 8 rebased copies → their fresh realigned chain |
-| adaptation | make the import run here | entrypoint build, credential DB discovery, prefer V2 next DB, provider-id resolution, biome |
-| `prorata` | burn-rate feature | indicator + delta math |
-| formatting | pure row/line formatting | grouped-formatter extraction |
-| `slots` | host-contract surfaces | opentui pin, slot-tree typing, 3 claims, session-meta, sectioned sidebar, separator fix |
-| presentation | visual & visibility policy | hiddenEntries/quietEntries, barTheme glyphs, composable specs, property-stack registry (+ spec tests) |
-| meta | describe the shape | v2-integration README + addenda, gitignore, this doc |
+| `v2` import | dmmop's chain verbatim | their realigned chain, top = `main@dmmop-v2` |
+| `adapt` | make the import run here | entrypoint build, credential DB discovery, prefer V2 next DB, provider-id resolution (+biome) |
+| `slots` contract | which host surfaces we claim | opentui pin, slot-tree typing, 3 footer claims, session-meta via context.data |
+| `prorata` | burn-rate feature | indicator + delta math (incl. boolean-row tolerance) |
+| `formatting` | pure formatting + entry data model | grouped-formatter extraction, `quiet` hint field |
+| surface content | rendering inside claimed surfaces | sectioned sidebar + host plugin options (+pluginOptions plumbing), separators |
+| `presentation` | visual & visibility policy | hiddenEntries/quietEntries config, barTheme glyphs, composable specs (+metrics), property-stack registry (+spec tests) |
+| meta | describe the shape | v2-integration notebook, gitignore, round docs |
+
+Ordering rule as executed: **infrastructure below features, data model
+below the surfaces that consume it** — the second pass inverted the first
+pass's prorata-below-slots (they are parallel branches; linearity now puts
+the host contract lower, which is where host-driven churn lands).
 
 ## Rounds and stamps (mechanics)
 
@@ -91,10 +97,13 @@ A **round** is one re-integration cycle:
 3. **Rebase** — onto the base that already contains the upstream
    reconciliation when one exists. Keep happenstance commits through
    conflict resolution (safer), then **regroup** into the argued logical
-   commits before closing — that regroup is part of the round.
+   commits before closing — that regroup is part of the round. (The 0830
+   round closed before regrouping; see its actuals.)
 4. **Verify** — biome, typecheck, build, full suite; commands and quirks in
    the [v2-integration README § Verification](/design/v2-integration/README.md#verification).
-5. **Close** — move floating bookmarks to true layer boundaries; stamp; log
+5. **Close** — move floating bookmarks to true layer boundaries; stamp;
+   restore any fossil the rebase auto-moved (jj moves bookmarks on rebased
+   commits; fossils must be pinned back to their pre-rebase commits); log
    the round's argument and actuals below; commit docs with the state.
 
 Stamp rules:
@@ -121,20 +130,100 @@ cautionary tale; resets happen at round boundaries.
 
 ## Round log
 
-### 2026-08-30 (in flight)
+### 2026-08-31 (regroup round)
+
+The 0830 round's deferred regroup, executed as its own round — and then, in
+the same sitting, reordered again after questioning the one boundary the
+first pass had merely inherited.
+
+- **Second argument (the swap)**: prorata and the slots *contract* are
+  parallel branches off adaptation — disjoint files, neither needs the
+  other. Linearity should put infrastructure below features: "which surface
+  am I on" (host contract) precedes "what do I show on it" (burn-rate,
+  themes). prorata + formatting were extracted upward across the slots
+  block; the result carries less: host-driven churn (opentui, slot API)
+  now lands on four self-contained contract commits instead of dragging
+  through the feature layers.
+- **Layering corrections forced by execution** (each was a real mid-stack
+  compile break):
+  - `NormalizedGroupedQuotaEntry.quiet` is entry *data model* — split from
+    the visibility commit into its own commit below the sectioned sidebar
+    that renders it subdued.
+  - `pluginOptions` plumbing (`ResolveQuotaRuntimeContextParams`,
+    `LoadConfigOptions`, dialog-command params) belongs with the
+    sectioned-sidebar commit that introduces host plugin options — it had
+    drifted up into visibility.
+  - `formatProRataIndicator`'s optional `percentRemaining` (upstream's
+    boolean rows) belongs in the prorata commit; the metrics optionality
+    (`computeProRataDeltaPct`, `barThemeMetricsForEntry`,
+    `BarThemeMetrics`) belongs in the composable-specs commit.
+  - One **latent bug** surfaced by the check, pre-existing in the old
+    chain: `getQuotaMessage` destructured `activeProviderCount` but
+    returned `result.active.length` — a variable not in scope. The claim
+    commits never compiled standalone; only the tip did.
+- **New close-step**: per-commit typecheck across the whole local line.
+  First run: 6/11 of the touched span, then 27/30, then **30/30 compile
+  standalone**. Full suite at the tip: **192 files / 2296 tests** green,
+  content-equivalent to the 0830 close.
+- **Bookmark rework** (names were on the table): new layer bookmarks
+  `adapt` (adaptation top), `formatting` (formatter extraction + entry
+  data model), `presentation` (visibility/themes/registry top);
+  `slots` redefined to the contract top (session-meta) — a deliberate
+  backwards move; `prorata`, `integration` unchanged in meaning. Stamped
+  all six 20260831; `v2` unmoved (no stamp, only-moved rule).
+- Method notes: era-restore (each conflicted file from that commit's own
+  pre-surgery copy, anchored by the pinned pre-regroup commit id) and
+  duplicate-application neutrality (apply the change low; the upper copy
+  becomes a no-op merge) did the mechanical work. Two self-inflicted
+  traps recurred: `jj new` mid-stack *forks* rather than inserts (rebase
+  the upper stack onto the new commit), and testing in edit mode can
+  check the wrong tree — always verify at the bookmarked tip.
+
+### 2026-08-30
 
 - Fetch: dmmop realigned their fork with upstream through 08-23 and added
-  five commits; origin added #240 (Windows portability, 6 commits) — deferred
-  to a later round. Base chosen: `main@dmmop-v2`.
+  five commits (displayed as deletions when their force-push hid old copies —
+  expected); origin added #240 (Windows portability, 6 commits) — deferred to
+  the next round. Base chosen: `main@dmmop-v2`.
 - Shape argument: as assessed above (seven layers; two named inversions).
-- Plan: rebase happenstance stack as-is, resolve conflicts, regroup into the
-  argued layers, reset `v2` to the imported chain top, verify, close with
-  stamps `v2-20260830`, `prorata-20260830` (created although prorata is
-  content-idle — the rebase moved its commit), `slots-20260830`,
-  `integration-20260830`. `prorata`/`slots` boundaries stay semantic (the
-  indicator commit; the session-meta commit) — regrouping reassigns the
-  polish week's commits but does not move historical boundaries.
-- Actuals: *(appended at close)*
+- Actuals:
+  - 24 local commits rebased; ~12 conflict sites across 15 files resolved
+    bottom-up in `jj edit` mode (amend each conflicted commit, descendants
+    auto-rebase). One stray divergent working-copy commit (a `nnsxxlpu`
+    duplicate created by the edit-mode rebases) was abandoned.
+  - `prepare-tui-dist.mjs`: took dmmop's dual-entrypoint babel loop, kept our
+    `tui-v2.d.ts → tui.d.ts` copy.
+  - Credential rows: adopted dmmop's richer schema (id/label/active,
+    active-first ordering); our DB discovery and V2-next preference survive
+    — the primary-path test now expects `opencode-next.db`.
+  - Upstream moved the toast format call into `quota-toast-runtime.ts`; our
+    `showProRataIndicator` and `barTheme` config lines were re-applied there
+    rather than in `plugin.ts`.
+  - `formatGroupedQuotaEntryLines` (our extraction) was re-implemented on
+    upstream's `interpretAccountingRow` model — value/atomic branches,
+    percentValueCol threading, basis detail lines, and the pro-rata
+    countdown all ported; 91 formatter tests held at the port point.
+  - Boolean-entry compatibility (upstream's new `QuotaBooleanEntry`):
+    `formatProRataIndicator`, `computeProRataDeltaPct`, and
+    `BarThemeMetrics` now treat `percentRemaining` as optional.
+  - **Inversion decision**: the five-hour window label. Ours was
+    "Five-hour"; upstream pins "5h" in eight tests plus the accounting
+    aliases, and the compact label fits the narrow-toast width policy. Ours
+    yielded; the sections test was updated. Recorded here because the
+    happenstance order can't be trusted to explain this one.
+  - Verify: typecheck clean, build clean, full suite **192 files / 2296
+    tests** green (up from 1968 at the 0818 tip — upstream's tests included).
+  - Close: `v2` reset to the imported chain top (backwards move allowed —
+    the drift fix); `prorata`/`slots` rode the rebase automatically;
+    `integration` moved to the round tip. Stamps created: `v2-20260830`,
+    `prorata-20260830`, `slots-20260830`, `integration-20260830`. The 0818
+    fossils (`prorata-20260818`, `slots-20260818`, `integration-20260818`)
+    were restored to their pre-rebase commits after the rebase auto-moved
+    them — jj moves bookmarks on rebased commits; practice says fossils
+    never move, so this restore is now an explicit close step.
+  - Deferred to a follow-up: regrouping the polish-week commits into the
+    argued layers (the round closed on happenstance commits plus one merge
+    fixup), and origin's #240.
 
 ## Cross-references
 
