@@ -114,7 +114,7 @@ describe("OpenCode auth reader", () => {
     vi.stubEnv("XDG_DATA_HOME", join(dataDir, ".."));
 
     expect(getCredentialDatabasePaths()).toContain(join(dataDir, "opencode.db"));
-    expect(getCredentialDatabasePath()).toBe(join(dataDir, "opencode.db"));
+    expect(getCredentialDatabasePath()).toBe(join(dataDir, "opencode-next.db"));
 
     vi.stubEnv("OPENCODE_DB", "custom.db");
     expect(getCredentialDatabasePaths()).toEqual([join(dataDir, "custom.db")]);
