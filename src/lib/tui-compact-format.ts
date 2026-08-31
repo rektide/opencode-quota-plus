@@ -34,8 +34,11 @@ function truncateSingleLine(text: string, maxWidth: number): string {
 function formatCompactPercentLabel(
   percentRemaining: number,
   mode: QuotaToastConfig["percentDisplayMode"],
+  decimals?: number,
 ): string {
-  return formatDisplayedPercentLabel(percentRemaining, mode).split(" ")[0] ?? "0%";
+  return (
+    formatDisplayedPercentLabel(percentRemaining, mode, decimals).split(" ")[0] ?? "0%"
+  );
 }
 
 function formatCompactDisplayName(name: string): string {
@@ -134,6 +137,7 @@ function buildSemanticCandidate(
   entry: QuotaToastEntry,
   percentDisplayMode: QuotaToastConfig["percentDisplayMode"],
   accountingDetail: QuotaToastConfig["accountingDetail"],
+  percentDecimals?: number,
 ): CompactCandidate | null {
   if (!entry.semantic) return null;
   const shouldRequestBasis =
@@ -147,7 +151,11 @@ function buildSemanticCandidate(
   const value =
     interpretation.display.kind === "percent"
       ? Number.isFinite(interpretation.display.percentRemaining)
-        ? formatCompactPercentLabel(interpretation.display.percentRemaining, percentDisplayMode)
+        ? formatCompactPercentLabel(
+            interpretation.display.percentRemaining,
+            percentDisplayMode,
+            percentDecimals,
+          )
         : null
       : interpretation.display.entryKind === "value"
         ? compactText(interpretation.display.text)
@@ -179,6 +187,7 @@ function formatCompactEntryCandidates(params: {
   entries: QuotaRenderData["entries"];
   percentDisplayMode: QuotaToastConfig["percentDisplayMode"];
   accountingDetail: QuotaToastConfig["accountingDetail"];
+  percentDecimals?: number;
 }): CompactCandidate[] {
   const semantic: CompactCandidate[] = [];
   const groups = new Map<string, CompactPercentGroup>();
@@ -190,6 +199,7 @@ function formatCompactEntryCandidates(params: {
         entry,
         params.percentDisplayMode,
         params.accountingDetail,
+        params.percentDecimals,
       );
       if (candidate) semantic.push(candidate);
       continue;
@@ -203,7 +213,11 @@ function formatCompactEntryCandidates(params: {
     if (!isPercentEntry(entry)) continue;
 
     const provider = getProviderName(entry);
-    const value = formatCompactPercentLabel(entry.percentRemaining, params.percentDisplayMode);
+    const value = formatCompactPercentLabel(
+      entry.percentRemaining,
+      params.percentDisplayMode,
+      params.percentDecimals,
+    );
     const label = getWindowLabel(entry);
     const key = provider.toLowerCase();
     let group = groups.get(key);
@@ -347,6 +361,7 @@ export function buildCompactQuotaStatusLine(params: {
   data: QuotaRenderData;
   percentDisplayMode?: QuotaToastConfig["percentDisplayMode"];
   accountingDetail?: QuotaToastConfig["accountingDetail"];
+  percentDecimals?: number;
   maxWidth: number;
 }): string {
   const maxWidth = normalizeMaxWidth(params.maxWidth);
@@ -359,6 +374,7 @@ export function buildCompactQuotaStatusLine(params: {
     entries: data.entries,
     percentDisplayMode,
     accountingDetail,
+    percentDecimals: params.percentDecimals,
   });
   const sessionTokensSegment = formatCompactSessionTokensSegment(data);
   if (sessionTokensSegment) {

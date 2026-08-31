@@ -252,6 +252,7 @@ async function getQuotaStatusLine(
   const text = buildCompactQuotaStatusLine({
     data,
     percentDisplayMode: config.percentDisplayMode,
+    percentDecimals: config.percentDecimals,
     maxWidth: compact.maxWidth,
   });
   return text.trim() ? sanitizeDisplayText(text) : undefined;
@@ -290,6 +291,7 @@ async function getHomeFooterLine(context: TuiContext): Promise<string | undefine
   const text = buildCompactQuotaStatusLine({
     data,
     percentDisplayMode: config.percentDisplayMode,
+    percentDecimals: config.percentDecimals,
     maxWidth: compact.maxWidth,
   });
   return text.trim() ? sanitizeDisplayText(text) : undefined;

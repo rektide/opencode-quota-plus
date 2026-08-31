@@ -882,6 +882,28 @@ describe("loadConfig", () => {
     }
   });
 
+  it("defaults percentDecimals to unset and accepts integer 0..2 overrides", async () => {
+    const defaults = await loadSdkConfig({});
+    expect(defaults.config.percentDecimals).toBeUndefined();
+
+    const explicit = await loadSdkConfig({ percentDecimals: 1 });
+    expect(explicit.config.percentDecimals).toBe(1);
+    expect(explicit.meta.settingSources).toEqual({
+      percentDecimals: "client.config.get",
+    });
+
+    for (const value of [0, 2]) {
+      const boundary = await loadSdkConfig({ percentDecimals: value });
+      expect(boundary.config.percentDecimals).toBe(value);
+    }
+
+    for (const invalid of [-1, 3, 1.5, Number.NaN, "1", null]) {
+      const rejected = await loadSdkConfig({ percentDecimals: invalid });
+      expect(rejected.config.percentDecimals).toBeUndefined();
+      expect(rejected.meta.settingSources).not.toHaveProperty("percentDecimals");
+    }
+  });
+
   it("defaults showProRataIndicator to true and accepts boolean overrides", async () => {
     const defaults = await loadSdkConfig({});
     expect(defaults.config.showProRataIndicator).toBe(true);

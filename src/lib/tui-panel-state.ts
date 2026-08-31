@@ -40,6 +40,7 @@ export type PromptBarState =
       entry?: PromptBarEntry;
       percentDisplayMode?: PercentDisplayMode;
       resetTimeDecimals?: number;
+      percentDecimals?: number;
     };
 
 export function shouldRenderSidebarPanel(panel: SidebarPanelState): boolean {

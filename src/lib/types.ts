@@ -121,6 +121,12 @@ export interface QuotaToastConfig {
    */
   resetTimeDecimals?: number;
   /**
+   * Decimal places for percent labels and the pro-rata indicator
+   * (e.g. 1 renders "74.4%" and "+2.5%"). Unset keeps integer percents with
+   * the "used"/"left" suffix; when set, the suffix is dropped.
+   */
+  percentDecimals?: number;
+  /**
    * When true (default), render a signed pro-rata burn-rate indicator next to
    * the reset countdown for each quota window (e.g. "+25% 5.7d" or "-10% 1.4h").
    *

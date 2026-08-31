@@ -497,6 +497,58 @@ describe("formatQuotaRows", () => {
     expect(out).toMatch(/\+25%\s+5d/);
   });
 
+  it("renders decimal percent labels without the used/left suffix", () => {
+    const out = formatQuotaRows({
+      version: "1.0.0",
+      layout: { maxWidth: 50, narrowAt: 42, tinyAt: 32 },
+      percentDecimals: 1,
+      percentDisplayMode: "remaining",
+      entries: [
+        {
+          name: "Copilot",
+          group: "Copilot",
+          label: "Weekly:",
+          percentRemaining: 74.4,
+          resetTimeIso: "2099-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+
+    const barLine = out.split("\n")[1] ?? "";
+    expect(barLine).toContain("74.4%");
+    expect(out).not.toContain("% left");
+    expect(out).not.toContain("% used");
+  });
+
+  it("applies decimal resolution to the pro-rata indicator", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));
+
+    // Weekly entry: 25% elapsed, 50% used -> delta exactly 25.0 -> "+25.0%".
+    const resetIso = new Date(
+      new Date("2026-01-15T12:00:00.000Z").getTime() + 0.75 * 7 * 86_400_000,
+    ).toISOString();
+
+    const out = formatQuotaRows({
+      version: "1.0.0",
+      layout: { maxWidth: 50, narrowAt: 42, tinyAt: 32 },
+      percentDecimals: 1,
+      showProRataIndicator: true,
+      entries: [
+        {
+          name: "Copilot",
+          group: "Copilot",
+          label: "Weekly:",
+          percentRemaining: 50,
+          resetTimeIso: resetIso,
+        },
+      ],
+    });
+
+    expect(out).toContain("+25.0%");
+    expect(out).toContain("50.0%");
+  });
+
   it("hides pro-rata indicator when showProRataIndicator is false", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));

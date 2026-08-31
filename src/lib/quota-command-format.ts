@@ -138,6 +138,7 @@ function buildQuotaCommandDocument(params: {
   generatedAtMs?: number;
   percentDisplayMode?: QuotaToastConfig["percentDisplayMode"];
   accountingDetail?: QuotaToastConfig["accountingDetail"];
+  percentDecimals?: number;
   showProRataIndicator?: boolean;
 }): ReportDocument {
   const groups = groupQuotaEntries(params.entries, "quota");
@@ -178,12 +179,16 @@ function buildQuotaCommandDocument(params: {
       const pctLabel = formatDisplayedPercentLabel(
         interpretation.display.percentRemaining,
         params.percentDisplayMode,
+        params.percentDecimals,
       );
       const displayedPercent = resolveDisplayedPercent(
         interpretation.display.percentRemaining,
         params.percentDisplayMode,
       );
-      const indicator = formatProRataIndicator(row, { enabled: params.showProRataIndicator });
+      const indicator = formatProRataIndicator(row, {
+        enabled: params.showProRataIndicator,
+        decimals: params.percentDecimals,
+      });
       const details = formatCommandDetails({ entry: row, rightWidth, indicator });
       lines.push(
         `  ${label}  ${bar(displayedPercent, QUOTA_COMMAND_BAR_WIDTH)}  ${padLeft(pctLabel, Math.max(9, pctLabel.length))}${details}`,
@@ -253,6 +258,7 @@ export function formatQuotaCommand(params: {
   generatedAtMs?: number;
   percentDisplayMode?: QuotaToastConfig["percentDisplayMode"];
   accountingDetail?: QuotaToastConfig["accountingDetail"];
+  percentDecimals?: number;
   showProRataIndicator?: boolean;
 }): string {
   return renderPlainTextReport(buildQuotaCommandDocument(params));

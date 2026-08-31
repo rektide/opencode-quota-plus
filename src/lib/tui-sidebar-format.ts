@@ -14,7 +14,12 @@ export function buildSidebarQuotaPanelLines(params: {
   data: QuotaRenderData;
   config: Pick<
     QuotaToastConfig,
-    "formatStyle" | "percentDisplayMode" | "resetTimeDecimals" | "showProRataIndicator" | "barTheme"
+    | "formatStyle"
+    | "percentDisplayMode"
+    | "resetTimeDecimals"
+    | "percentDecimals"
+    | "showProRataIndicator"
+    | "barTheme"
   > &
     Partial<Pick<QuotaToastConfig, "accountingDetail">>;
 }): string[] {
@@ -29,6 +34,7 @@ export function buildSidebarQuotaPanelLines(params: {
     percentDisplayMode: params.config.percentDisplayMode,
     accountingDetail: params.config.accountingDetail,
     resetTimeDecimals: params.config.resetTimeDecimals,
+    percentDecimals: params.config.percentDecimals,
     showProRataIndicator: params.config.showProRataIndicator,
     barTheme: params.config.barTheme,
     sessionTokens: data.sessionTokens,

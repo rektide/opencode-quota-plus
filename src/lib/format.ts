@@ -9,7 +9,7 @@ import { isPercentEntry } from "./entries.js";
 import {
   bar,
   barThemeMetricsForEntry,
-  DISPLAYED_PERCENT_LABEL_WIDTH,
+  displayedPercentLabelWidth,
   formatDisplayedPercentLabel,
   formatProRataIndicator,
   formatResetCountdown,
@@ -105,6 +105,7 @@ export function formatQuotaRows(params: {
   percentDisplayMode?: QuotaToastConfig["percentDisplayMode"];
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
+  percentDecimals?: number;
   showProRataIndicator?: boolean;
   barTheme?: BarThemeSpec;
   sessionTokens?: SessionTokensData;
@@ -119,6 +120,7 @@ export function formatQuotaRows(params: {
       percentDisplayMode: params.percentDisplayMode,
       accountingDetail: params.accountingDetail,
       resetTimeDecimals: params.resetTimeDecimals,
+      percentDecimals: params.percentDecimals,
       showProRataIndicator: params.showProRataIndicator,
       barTheme: params.barTheme,
       sessionTokens: params.sessionTokens,
@@ -137,12 +139,16 @@ export function formatQuotaRows(params: {
 
   const separator = "  ";
   const percentCol = Math.max(
-    DISPLAYED_PERCENT_LABEL_WIDTH,
+    displayedPercentLabelWidth(params.percentDecimals),
     ...(params.entries ?? [])
       .filter(isPercentEntry)
       .map(
         (entry) =>
-          formatDisplayedPercentLabel(entry.percentRemaining, params.percentDisplayMode).length,
+          formatDisplayedPercentLabel(
+            entry.percentRemaining,
+            params.percentDisplayMode,
+            params.percentDecimals,
+          ).length,
       ),
   );
 
@@ -171,7 +177,11 @@ export function formatQuotaRows(params: {
     },
   ) => {
     const displayedPercent = resolveDisplayedPercent(remaining, params.percentDisplayMode);
-    const percentLabel = formatDisplayedPercentLabel(remaining, params.percentDisplayMode);
+    const percentLabel = formatDisplayedPercentLabel(
+      remaining,
+      params.percentDisplayMode,
+      params.percentDecimals,
+    );
     const visibleBarSuffix = percentLabel.slice(0, percentValueCol);
     const summary = rightSummary?.trim() || "";
     const leftText = summary ? `${name} ${summary}` : name;
@@ -191,7 +201,10 @@ export function formatQuotaRows(params: {
     // prepended to the reset countdown (e.g. "+25% 5.7d" or "-10% 1.4h").
     const proRata =
       !isTiny && entry
-        ? formatProRataIndicator(entry, { enabled: params.showProRataIndicator })
+        ? formatProRataIndicator(entry, {
+            enabled: params.showProRataIndicator,
+            decimals: params.percentDecimals,
+          })
         : "";
     const fullTimeStr = proRata && countdown ? `${proRata} ${countdown}` : proRata || countdown;
     const compactLineWidth = leftText.length + separator.length + fullTimeStr.length;

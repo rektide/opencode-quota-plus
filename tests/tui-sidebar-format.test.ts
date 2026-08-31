@@ -13,6 +13,32 @@ describe("buildSidebarQuotaPanelLines", () => {
     vi.useRealTimers();
   });
 
+  it("renders decimal percent labels without the used/left suffix", () => {
+    const lines = buildSidebarQuotaPanelLines({
+      config: {
+        formatStyle: "allWindows",
+        percentDisplayMode: "remaining",
+        percentDecimals: 1,
+      },
+      data: {
+        entries: [
+          {
+            name: "Z.ai",
+            group: "Z.ai",
+            label: "5h:",
+            percentRemaining: 74.4,
+            resetTimeIso: "2099-01-01T00:00:00.000Z",
+          },
+        ],
+        errors: [],
+      },
+    });
+
+    const flat = lines.join("\n");
+    expect(flat).toContain("74.4%");
+    expect(flat).not.toContain("% left");
+  });
+
   it("sanitizes structured entry, error, and session-token text before rendering", () => {
     const lines = buildSidebarQuotaPanelLines({
       config: {

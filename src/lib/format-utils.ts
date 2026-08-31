@@ -99,12 +99,34 @@ export function resolveDisplayedPercent(
 export function formatDisplayedPercentLabel(
   percentRemaining: number,
   mode: PercentDisplayMode = "remaining",
+  decimals = 0,
 ): string {
-  const displayedPercent = resolveDisplayedPercent(percentRemaining, mode);
-  return `${displayedPercent}% ${mode === "used" ? "used" : "left"}`;
+  const raw = mode === "used" ? 100 - percentRemaining : percentRemaining;
+  const displayed = Math.max(0, raw);
+  // Finer resolution drops the "used"/"left" suffix: the decimal value reads
+  // as a numeric gauge and the suffix costs width on every surface.
+  if (decimals > 0) return `${displayed.toFixed(decimals)}%`;
+  return `${Math.round(displayed)}% ${mode === "used" ? "used" : "left"}`;
 }
 
 export const DISPLAYED_PERCENT_LABEL_WIDTH = "100% used".length;
+
+export const MAX_PERCENT_DECIMALS = 2;
+
+export function isPercentDecimals(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= MAX_PERCENT_DECIMALS
+  );
+}
+
+/** Column width of the widest percent label for a given decimal resolution. */
+export function displayedPercentLabelWidth(decimals = 0): number {
+  if (decimals === 0) return DISPLAYED_PERCENT_LABEL_WIDTH;
+  return `100.${"0".repeat(decimals)}%`.length;
+}
 
 /**
  * Format a token count with K/M suffix for compactness.
@@ -268,6 +290,11 @@ export interface FormatProRataIndicatorOptions {
    * Default: Date.now().
    */
   nowMs?: number;
+  /**
+   * Decimal resolution of the signed delta, matching `percentDecimals`.
+   * Default: 0 (integer, e.g. "+25%").
+   */
+  decimals?: number;
 }
 
 /**
@@ -406,6 +433,10 @@ export function formatProRataIndicator(
 
   if (!Number.isFinite(diffPct)) return "";
 
+  const decimals = opts?.decimals ?? 0;
+  if (decimals > 0) {
+    return `${diffPct >= 0 ? "+" : "-"}${Math.abs(diffPct).toFixed(decimals)}%`;
+  }
   const rounded = Math.round(diffPct);
   const sign = rounded >= 0 ? "+" : "-";
   return `${sign}${Math.abs(rounded)}%`;

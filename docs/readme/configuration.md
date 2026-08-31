@@ -374,6 +374,22 @@ Leave it unset to preserve the default display exactly.
 </details>
 
 <details>
+<summary><strong>Show finer-grained percentages</strong></summary>
+
+By default, percent labels are integers with a direction suffix (`74% left`, `26% used`), and the pro-rata indicator rounds to whole points (`+25%`). Set `percentDecimals` to an integer from `0` to `2` to render fractional values such as `74.4%` and `+2.5%` — the resolution applies to the percent labels *and* the pro-rata burn-rate indicator on every surface (toasts, Sidebar, compact status line, `/quota`, terminal `show`). In this mode the `used`/`left` suffix is dropped.
+
+```jsonc
+{
+  "percentDisplayMode": "used",
+  "percentDecimals": 1,
+}
+```
+
+Leave it unset to keep integer percents with the suffix.
+
+</details>
+
+<details>
 <summary><strong>Show pro-rata burn-rate indicator</strong></summary>
 
 By default each reset countdown is prefixed with a signed pro-rata delta, for example `+25% 5.7d` or `-10% 1.4h`. The delta compares your actual usage percentage against the linear pro-rata expectation for the elapsed fraction of the window. Example: a weekly window 25% elapsed with 50% actual usage renders `+25%` (using 25 percentage points more than the pro-rata pace). Applies to the Sidebar panel, popup toasts, `/quota`, and `opencode-quota show`.
@@ -465,6 +481,7 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `percentDisplayMode`          | `remaining`    | Percentage/bar direction across human surfaces: `remaining` shows the percentage left; `used` shows the percentage consumed. It does not rename literal basis facts.                                                                                                                                               |
 | `accountingDetail`            | `summary`      | Provider-neutral accounting detail across human surfaces: `summary` keeps primary rows; `detailed` also admits supplementary rows and fuller basis detail when width allows. Independent of `formatStyle` and `percentDisplayMode`.                                                                                |
 | `resetTimeDecimals`           | unset          | Decimal places for compact reset countdowns in popup toasts, the Sidebar panel, and terminal `show`. Accepts integers `0`–`4`; unset preserves the default integer-day and half-hour-step display.                                                                                                                  |
+| `percentDecimals`             | unset          | Decimal places for percent labels and the pro-rata indicator across all surfaces (e.g. `74.4%`, `+2.5%`). Accepts integers `0`–`2`; when set, the `used`/`left` label suffix is dropped. Unset keeps integer percents with the suffix.                                                                             |
 | `showProRataIndicator`        | `true`         | When `true`, prefix each reset countdown with a signed pro-rata burn-rate delta, for example `+25% 5.7d` (using 25 percentage points more than the linear pro-rata pace). Requires a known window duration (5h/1h/daily/weekly/monthly/yearly/RPM); otherwise omitted.                                             |
 | `barTheme`                    | `"classic"`    | Bar theme spec: a property stack of character themes, colors, and conditional rules — entries merge left to right, last value per property wins. Characters: `classic`, `solid`, `shade`, `soft`, `smooth`, `dots`, `rings`, `squares`, `smol`, `heavy`, `light`, `halves`. Colors: host theme tokens, CSS names, or `#rrggbb`. Conditions: `prorata`, `used`, `percent`, `hours`. |
 | `onlyCurrentModel`            | `false`        | Filter quota rows to the current model/provider when that session selection can be resolved.                                                                                                                                                                                                                        |

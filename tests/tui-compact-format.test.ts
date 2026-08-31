@@ -23,6 +23,27 @@ describe("buildCompactQuotaStatusLine", () => {
     expect(line).toBe("Copilot 82%");
   });
 
+  it("formats decimal percent resolution without mode suffix", () => {
+    const line = buildCompactQuotaStatusLine({
+      percentDisplayMode: "used",
+      percentDecimals: 1,
+      maxWidth: 96,
+      data: {
+        entries: [
+          {
+            name: "Copilot rolling window",
+            group: "Copilot",
+            label: "5h:",
+            percentRemaining: 74.4,
+          },
+        ],
+        errors: [],
+      },
+    });
+
+    expect(line).toBe("Copilot 25.6%");
+  });
+
   it("formats used percent mode with text-only percentages", () => {
     const line = buildCompactQuotaStatusLine({
       percentDisplayMode: "used",

@@ -12,7 +12,7 @@ import { isPercentEntry } from "./entries.js";
 import {
   bar,
   barThemeMetricsForEntry,
-  DISPLAYED_PERCENT_LABEL_WIDTH,
+  displayedPercentLabelWidth,
   formatDisplayedPercentLabel,
   formatProRataIndicator,
   formatResetCountdown,
@@ -79,6 +79,7 @@ export type GroupedRowLayoutParams = {
   percentDisplayMode?: QuotaToastConfig["percentDisplayMode"];
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
+  percentDecimals?: number;
   showProRataIndicator?: boolean;
   /** Raw bar theme spec; resolved per entry so conditionals can apply. */
   themeSpec?: BarThemeSpec;
@@ -92,6 +93,7 @@ export function createGroupedRowLayoutParams(params: {
   percentDisplayMode?: QuotaToastConfig["percentDisplayMode"];
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
+  percentDecimals?: number;
   showProRataIndicator?: boolean;
   barTheme?: BarThemeSpec;
   nowMs?: number;
@@ -101,12 +103,16 @@ export function createGroupedRowLayoutParams(params: {
   const isNarrow = !isTiny && maxWidth <= narrowAt;
   const separator = "  ";
   const percentCol = Math.max(
-    DISPLAYED_PERCENT_LABEL_WIDTH,
+    displayedPercentLabelWidth(params.percentDecimals),
     ...(params.entries ?? [])
       .filter(isPercentEntry)
       .map(
         (entry) =>
-          formatDisplayedPercentLabel(entry.percentRemaining, params.percentDisplayMode).length,
+          formatDisplayedPercentLabel(
+            entry.percentRemaining,
+            params.percentDisplayMode,
+            params.percentDecimals,
+          ).length,
       ),
   );
 
@@ -121,6 +127,7 @@ export function createGroupedRowLayoutParams(params: {
     percentDisplayMode: params.percentDisplayMode,
     accountingDetail: params.accountingDetail,
     resetTimeDecimals: params.resetTimeDecimals,
+    percentDecimals: params.percentDecimals,
     showProRataIndicator: params.showProRataIndicator,
     themeSpec: params.barTheme,
     nowMs: params.nowMs,
@@ -231,6 +238,7 @@ export function formatGroupedQuotaEntryLines(
   const percentLabel = formatDisplayedPercentLabel(
     interpretation.display.percentRemaining,
     params.percentDisplayMode,
+    params.percentDecimals,
   );
 
   // Percent entries
@@ -247,7 +255,11 @@ export function formatGroupedQuotaEntryLines(
   // dropped when it would force additional label truncation. Otherwise
   // it is prepended to the reset countdown (e.g. "+25% 5.7d").
   const proRata =
-    !isTiny && formatProRataIndicator(entry, { enabled: params.showProRataIndicator });
+    !isTiny &&
+    formatProRataIndicator(entry, {
+      enabled: params.showProRataIndicator,
+      decimals: params.percentDecimals,
+    });
   const fullTimeStr = proRata && countdown ? `${proRata} ${countdown}` : proRata || countdown;
   const compactLineWidth = label.length + separator.length + fullTimeStr.length;
   const timeStr = compactLineWidth <= maxWidth ? fullTimeStr : countdown;
@@ -333,6 +345,7 @@ export function formatQuotaRowsGrouped(params: {
   percentDisplayMode?: QuotaToastConfig["percentDisplayMode"];
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
+  percentDecimals?: number;
   showProRataIndicator?: boolean;
   barTheme?: BarThemeSpec;
   nowMs?: number;
@@ -347,6 +360,7 @@ export function formatQuotaRowsGrouped(params: {
     percentDisplayMode: params.percentDisplayMode,
     accountingDetail: params.accountingDetail,
     resetTimeDecimals: params.resetTimeDecimals,
+    percentDecimals: params.percentDecimals,
     showProRataIndicator: params.showProRataIndicator,
     barTheme: params.barTheme,
     nowMs: params.nowMs,

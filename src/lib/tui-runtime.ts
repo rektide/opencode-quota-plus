@@ -314,6 +314,7 @@ function buildCompactStatusFromData(params: {
         data,
         percentDisplayMode: params.runtime.config.percentDisplayMode,
         accountingDetail: params.runtime.config.accountingDetail,
+        percentDecimals: params.runtime.config.percentDecimals,
         maxWidth: params.maxWidth ?? params.runtime.config.tuiCompactStatus.maxWidth,
       })
     : "";
@@ -379,6 +380,7 @@ function buildSidebarPanelFromData(params: {
             data: primaryData,
             percentDisplayMode: params.runtime.config.percentDisplayMode,
             accountingDetail: params.runtime.config.accountingDetail,
+            percentDecimals: params.runtime.config.percentDecimals,
             maxWidth: TUI_SIDEBAR_MAX_WIDTH,
           }),
         ].filter((line): line is string => Boolean(line))
@@ -428,13 +430,17 @@ function fitPromptBarSemanticSegment(prefix: string, value: string): string | nu
 function buildSemanticPromptBarEntry(
   entry: QuotaRenderData["entries"][number],
   percentDisplayMode: QuotaRuntimeContext["config"]["percentDisplayMode"],
+  percentDecimals?: number,
 ): PromptBarEntry | undefined {
   if (!entry.semantic || entry.semantic.prominence !== "primary") return undefined;
 
   const value = isPercentEntry(entry)
     ? Number.isFinite(entry.percentRemaining)
-      ? (formatDisplayedPercentLabel(entry.percentRemaining, percentDisplayMode).split(" ")[0] ??
-        "0%")
+      ? (formatDisplayedPercentLabel(
+          entry.percentRemaining,
+          percentDisplayMode,
+          percentDecimals,
+        ).split(" ")[0] ?? "0%")
       : null
     : isQuantityEntry(entry)
       ? formatAccountingQuantity(entry.quantity)
@@ -465,13 +471,14 @@ function buildSemanticPromptBarEntry(
 function pickPromptBarEntry(
   data: QuotaRenderData | null,
   percentDisplayMode: QuotaRuntimeContext["config"]["percentDisplayMode"],
+  percentDecimals?: number,
 ): PromptBarEntry | undefined {
   if (!data || !Array.isArray(data.entries)) {
     return undefined;
   }
 
   for (const entry of data.entries) {
-    const semantic = buildSemanticPromptBarEntry(entry, percentDisplayMode);
+    const semantic = buildSemanticPromptBarEntry(entry, percentDisplayMode, percentDecimals);
     if (semantic) return semantic;
   }
 
@@ -510,12 +517,14 @@ function buildPromptBarFromData(params: {
   const entry = pickPromptBarEntry(
     params.result.allWindowsData ?? params.result.data,
     params.runtime.config.percentDisplayMode,
+    params.runtime.config.percentDecimals,
   );
   return {
     status: "ready",
     ...(entry ? { entry } : {}),
     percentDisplayMode: params.runtime.config.percentDisplayMode,
     resetTimeDecimals: params.runtime.config.resetTimeDecimals,
+    percentDecimals: params.runtime.config.percentDecimals,
   };
 }
 

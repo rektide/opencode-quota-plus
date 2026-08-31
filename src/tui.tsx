@@ -535,6 +535,7 @@ function buildPromptBarParts(params: {
   const percent = formatDisplayedPercentLabel(
     entry.percentRemaining ?? 0,
     bar.percentDisplayMode ?? "remaining",
+    bar.percentDecimals,
   );
   const p = Math.max(0, Math.min(100, Math.round(entry.percentRemaining ?? 0)));
   const filled = Math.round((p / 100) * PROMPT_BAR_WIDTH);

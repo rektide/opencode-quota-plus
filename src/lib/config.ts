@@ -12,7 +12,7 @@ import { join } from "path";
 import { type BarThemeSpec, validateBarThemeSpec } from "./bar-theme.js";
 import { getEffectiveConfigRoot } from "./config-file-utils.js";
 import { parseEntryVisibilityRule } from "./entry-visibility.js";
-import { isResetTimeDecimals } from "./format-utils.js";
+import { isPercentDecimals, isResetTimeDecimals } from "./format-utils.js";
 import {
   buildOpenCodeConfigCandidates,
   readOpenCodeConfigCandidate,
@@ -49,6 +49,7 @@ export const QUOTA_TOAST_SETTING_SOURCE_KEYS = [
   "percentDisplayMode",
   "accountingDetail",
   "resetTimeDecimals",
+  "percentDecimals",
   "showProRataIndicator",
   "minIntervalMs",
   "requestTimeoutMs",
@@ -171,6 +172,7 @@ type ValidatedQuotaToastPatch = {
   percentDisplayMode?: PercentDisplayMode;
   accountingDetail?: QuotaToastConfig["accountingDetail"];
   resetTimeDecimals?: number;
+  percentDecimals?: number;
   showProRataIndicator?: boolean;
   minIntervalMs?: number;
   requestTimeoutMs?: number;
@@ -742,6 +744,13 @@ function extractValidatedQuotaToastPatch(
   }
 
   if (
+    hasOwnKey(quotaToastConfig, "percentDecimals") &&
+    isPercentDecimals(quotaToastConfig.percentDecimals)
+  ) {
+    patch.percentDecimals = quotaToastConfig.percentDecimals;
+  }
+
+  if (
     hasOwnKey(quotaToastConfig, "showProRataIndicator") &&
     typeof quotaToastConfig.showProRataIndicator === "boolean"
   ) {
@@ -1035,6 +1044,11 @@ function applyValidatedQuotaToastPatch(
   if (hasOwnKey(patch, "resetTimeDecimals")) {
     config.resetTimeDecimals = patch.resetTimeDecimals;
     applySettingSource(settingSources, "resetTimeDecimals", sourcePath);
+  }
+
+  if (hasOwnKey(patch, "percentDecimals")) {
+    config.percentDecimals = patch.percentDecimals;
+    applySettingSource(settingSources, "percentDecimals", sourcePath);
   }
 
   if (hasOwnKey(patch, "showProRataIndicator")) {

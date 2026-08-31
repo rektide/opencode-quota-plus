@@ -18,6 +18,27 @@ describe("formatQuotaCommand", () => {
     vi.useRealTimers();
   });
 
+  it("renders decimal percent resolution in the quota table", () => {
+    const out = formatQuotaCommand({
+      percentDisplayMode: "remaining",
+      percentDecimals: 1,
+      entries: [
+        {
+          accounting: accounting("quota"),
+          name: "Copilot",
+          group: "Copilot",
+          label: "Weekly:",
+          percentRemaining: 74.4,
+          resetTimeIso: "2099-01-01T00:00:00.000Z",
+        },
+      ],
+      errors: [],
+    });
+
+    expect(out).toContain("74.4%");
+    expect(out).not.toContain("% left");
+  });
+
   it("documents the main /quota printout combinations used by the default command output", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));
