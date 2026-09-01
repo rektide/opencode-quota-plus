@@ -28,6 +28,7 @@ Strict `.json` files also work. Run `/quota_status` if you are unsure which file
 | Show slash results with messages           | `tuiCommandDisplay: "inline"` |
 | Show slash results in a TUI popup          | `tuiCommandDisplay: "dialog"` |
 | Turn the TUI sidebar on or off             | `tuiSidebarPanel.enabled`     |
+| Drop the sidebar footer one-liner          | `tuiSidebarPanel.footerLine`  |
 | Prefer an OpenCode Go collapsed row        | `tuiSidebarPanel.opencodeGoPreferredWindow` |
 | Turn popup quota notifications on or off   | `enableToast`                 |
 | Notify when weekly quota resets            | `resetNotifications.enabled`  |
@@ -513,6 +514,7 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | -------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tuiCommandDisplay`                                | `"inline"`           | Choose where deterministic native TUI command output appears. `inline` adds an ignored/no-reply plain-text message to the active transcript and uses a dialog on Home; `dialog` always opens the local popup. |
 | `tuiSidebarPanel.enabled`                          | `true`               | Show the Sidebar `Quota` panel when the TUI plugin is installed. Click the panel header to toggle its collapsed/expanded window layout; OpenCode remembers the last state. This is not an `accountingDetail` override. |
+| `tuiSidebarPanel.footerLine`                       | `true`               | Render the brief `Quota · N active · reset …` one-line summary in the sidebar footer. Turn it off to keep the panel but drop the line; `enabled: false` still removes both. |
 | `tuiSidebarPanel.formatStyle`                      | (root `formatStyle`) | Override `formatStyle` for the Sidebar panel only. Useful when you want `allWindows` detail in the sidebar but a different style elsewhere.                                                                   |
 | `tuiSidebarPanel.opencodeGoPreferredWindow`        | unset                | Prefer `rolling` (Five-hour), `weekly`, or `monthly` for OpenCode Go only while the sidebar is collapsed. If unset or unavailable, the lowest-remaining window is used. Expanded rows still follow `opencodeGoWindows`. |
 | `tuiCompactStatus.enabled`                         | `false`              | Opt in to Compact status line UI surfaces.                                                                                                                                                                    |

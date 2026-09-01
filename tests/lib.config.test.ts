@@ -299,7 +299,7 @@ describe("loadConfig", () => {
         enabled: false,
       },
     });
-    expect(explicit.config.tuiSidebarPanel).toEqual({ enabled: false });
+    expect(explicit.config.tuiSidebarPanel).toEqual({ enabled: false, footerLine: true });
     expect(explicit.meta.settingSources).toEqual({
       "tuiSidebarPanel.enabled": "client.config.get",
     });
@@ -495,7 +495,7 @@ describe("loadConfig", () => {
     expect(second.tuiSidebarPanel).toEqual(DEFAULT_CONFIG.tuiSidebarPanel);
     expect(second.tuiCompactStatus).toEqual(DEFAULT_CONFIG.tuiCompactStatus);
     expect(second.tuiPromptBar).toEqual(DEFAULT_CONFIG.tuiPromptBar);
-    expect(DEFAULT_CONFIG.tuiSidebarPanel).toEqual({ enabled: true });
+    expect(DEFAULT_CONFIG.tuiSidebarPanel).toEqual({ enabled: true, footerLine: true });
     expect(DEFAULT_CONFIG.tuiCompactStatus).toEqual({
       enabled: false,
       homeBottom: true,

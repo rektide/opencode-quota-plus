@@ -42,6 +42,13 @@ export interface PricingSnapshotConfig {
 
 export interface TuiSidebarPanelConfig {
   enabled: boolean;
+  /**
+   * Render the brief "Quota · N active · reset …" one-line summary in the
+   * sidebar footer, beneath the panel. Independent of `enabled` so the
+   * panel can stay while the line goes away (and vice versa:
+   * `enabled: false` still removes both).
+   */
+  footerLine: boolean;
   /** Per-surface formatStyle override. Falls back to root formatStyle when absent. */
   formatStyle?: QuotaFormatStyle;
   /** Preferred OpenCode Go window for the collapsed sidebar row. */
@@ -297,6 +304,7 @@ export const DEFAULT_CONFIG: QuotaToastConfig = {
   quietEntries: [],
   tuiSidebarPanel: {
     enabled: true,
+    footerLine: true,
   },
   tuiCompactStatus: {
     enabled: false,

@@ -77,6 +77,7 @@ export const QUOTA_TOAST_SETTING_SOURCE_KEYS = [
   "hiddenEntries",
   "quietEntries",
   "tuiSidebarPanel.enabled",
+  "tuiSidebarPanel.footerLine",
   "tuiSidebarPanel.formatStyle",
   "tuiSidebarPanel.opencodeGoPreferredWindow",
   "tuiCompactStatus.enabled",
@@ -507,6 +508,10 @@ function extractTuiSidebarPanelPatch(value: unknown): TuiSidebarPanelPatch | und
 
   if (hasOwnKey(value, "enabled") && typeof value.enabled === "boolean") {
     patch.enabled = value.enabled;
+  }
+
+  if (hasOwnKey(value, "footerLine") && typeof value.footerLine === "boolean") {
+    patch.footerLine = value.footerLine;
   }
 
   const sidebarFormatStyle = getExplicitFormatStyle(value);
@@ -1185,6 +1190,10 @@ function applyValidatedQuotaToastPatch(
     if (hasOwnKey(patch.tuiSidebarPanel, "enabled")) {
       config.tuiSidebarPanel.enabled = patch.tuiSidebarPanel.enabled!;
       applySettingSource(settingSources, "tuiSidebarPanel.enabled", sourcePath);
+    }
+    if (hasOwnKey(patch.tuiSidebarPanel, "footerLine")) {
+      config.tuiSidebarPanel.footerLine = patch.tuiSidebarPanel.footerLine!;
+      applySettingSource(settingSources, "tuiSidebarPanel.footerLine", sourcePath);
     }
 
     if (hasOwnKey(patch.tuiSidebarPanel, "formatStyle")) {

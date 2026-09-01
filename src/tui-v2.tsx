@@ -263,7 +263,7 @@ async function getSidebarFooterLine(
   sessionID: string,
 ): Promise<string | undefined> {
   const { config, data, activeProviderCount } = await collectQuotaForSession(context, sessionID);
-  if (!config.enabled || !config.tuiSidebarPanel.enabled) return;
+  if (!config.enabled || !config.tuiSidebarPanel.enabled || !config.tuiSidebarPanel.footerLine) return;
   if (!data) return;
   const soonestReset = data.entries
     .map((entry) => entry.resetTimeIso)

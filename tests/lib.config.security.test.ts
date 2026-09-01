@@ -328,6 +328,7 @@ describe("loadConfig layered precedence", () => {
           quotaToast: {
             tuiSidebarPanel: {
               enabled: false,
+              footerLine: false,
               opencodeGoPreferredWindow: "rolling",
             },
           },
@@ -356,9 +357,13 @@ describe("loadConfig layered precedence", () => {
 
     expect(cfg.tuiSidebarPanel).toEqual({
       enabled: false,
+      footerLine: false,
       opencodeGoPreferredWindow: "rolling",
     });
     expect(meta.settingSources["tuiSidebarPanel.enabled"]).toBe(
+      quotaConfigSource(join(xdgConfigHome, "opencode")),
+    );
+    expect(meta.settingSources["tuiSidebarPanel.footerLine"]).toBe(
       quotaConfigSource(join(xdgConfigHome, "opencode")),
     );
     expect(meta.settingSources["tuiSidebarPanel.opencodeGoPreferredWindow"]).toBe(
