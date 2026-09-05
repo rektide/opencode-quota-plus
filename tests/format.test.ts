@@ -652,10 +652,10 @@ describe("formatQuotaRows", () => {
     });
 
     // Short label "5h window" leaves plenty of room; the indicator hoists
-    // onto the provider header, parenthesized at the right edge, while the
-    // row carries the countdown plus window-elapsed "50% done".
+    // onto the provider header at the right edge, while the row carries
+    // the countdown plus window-elapsed "50% done".
     const lines = out.split("\n");
-    expect(lines[0]).toMatch(/^\[Provider\]\s+\(-20%\)$/u);
+    expect(lines[0]).toMatch(/^\[Provider\]\s+-20%$/u);
     expect(lines[1]).toMatch(/^\s*5h\s+2\.5h 50% done$/u);
     expect(lines[2]).toMatch(/70% left$/u);
     expect(lines.every((line) => line.length <= 36)).toBe(true);
@@ -697,7 +697,7 @@ describe("formatQuotaRows", () => {
     // Rows sort shortest-window-first, so 5h renders above Weekly and its
     // indicator sits right-most on the header.
     const header = out.split("\n")[0]!;
-    expect(header).toMatch(/^\[Provider\]\s+\(\+25%\)\s+\(-20%\)$/u);
+    expect(header).toMatch(/^\[Provider\]\s+\+25%\s+-20%$/u);
     expect(header).toHaveLength(36);
     expect(out).not.toMatch(/\n[^\n]*[+-]\d+%\s+\d/u);
   });

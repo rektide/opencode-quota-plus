@@ -337,10 +337,10 @@ export function formatGroupedQuotaEntryLines(
 
 /**
  * Provider header line with the group's pro-rata indicators hoisted to the
- * right edge, parenthesized and space-separated. With multiple windows the
- * top-most row's indicator sits right-most, so the header annotations map
- * onto row order reading right-to-left. Without computable indicators the
- * header is the plain normalized group title.
+ * right edge, space-separated. With multiple windows the top-most row's
+ * indicator sits right-most, so the header annotations map onto row order
+ * reading right-to-left. Without computable indicators the header is the
+ * plain normalized group title.
  */
 export function formatGroupedProviderHeaderLine(params: {
   group: string;
@@ -357,8 +357,7 @@ export function formatGroupedProviderHeaderLine(params: {
         nowMs: params.rowParams.nowMs,
       }),
     )
-    .filter((text) => text.length > 0)
-    .map((text) => `(${text})`);
+    .filter((text) => text.length > 0);
   if (indicators.length === 0) return header.slice(0, maxWidth);
 
   const right = indicators.reverse().join(" ");

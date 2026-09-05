@@ -268,7 +268,7 @@ export function isResetTimeDecimals(value: unknown): value is number {
 // Renders a signed percentage that compares actual usage against the linear
 // pro-rata expectation for the elapsed fraction of a quota window. The
 // grouped renderer hoists the indicator onto the provider header line
-// (e.g. "[OpenAI] (Pro)*        (+25%)") so users can see at a glance
+// (e.g. "[OpenAI] (Pro)*        +25%") so users can see at a glance
 // whether they are burning quota faster or slower than the pace implied by
 // the window's remaining time. The same pacing math feeds the "% done"
 // window-elapsed annotation on grouped rows.

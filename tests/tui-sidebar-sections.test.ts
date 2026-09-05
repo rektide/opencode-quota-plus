@@ -168,7 +168,7 @@ describe("buildSidebarQuotaSections", () => {
       },
     });
 
-    expect(sections[0]!.headerLine).toMatch(/^\[Z\.ai\]\s+\(\+25%\)\s+\(-20%\)$/u);
+    expect(sections[0]!.headerLine).toMatch(/^\[Z\.ai\]\s+\+25%\s+-20%$/u);
     expect(sections[0]!.headerLine).toHaveLength(TUI_SIDEBAR_MAX_WIDTH);
     const rowLines = sections[0]!.rows.flatMap((row) => row.lines);
     expect(rowLines[0]).toMatch(/2\.5h 50% done$/u);
