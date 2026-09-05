@@ -540,7 +540,7 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
     expect(allWindowsSidebar).toContain("64%");
     expect(allWindowsSidebar).toContain("$12.34");
     expect(allWindowsSidebar).toContain("80%");
-    expect(allWindowsSidebar).toContain("Team Accounting: adapter.mappings[2…");
+    expect(allWindowsSidebar).toContain("[Team Accounting] adapter.mappings[…");
     expect(allWindowsSidebar.split("\n").every((line) => line.length <= 36)).toBe(true);
     assertPhase5FixtureOrder(allWindowsSidebar);
     assertPhase5CanariesRedacted(allWindowsSidebar);

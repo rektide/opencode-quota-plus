@@ -263,7 +263,8 @@ async function getSidebarFooterLine(
   sessionID: string,
 ): Promise<string | undefined> {
   const { config, data, activeProviderCount } = await collectQuotaForSession(context, sessionID);
-  if (!config.enabled || !config.tuiSidebarPanel.enabled || !config.tuiSidebarPanel.footerLine) return;
+  if (!config.enabled || !config.tuiSidebarPanel.enabled || !config.tuiSidebarPanel.footerLine)
+    return;
   if (!data) return;
   const soonestReset = data.entries
     .map((entry) => entry.resetTimeIso)
@@ -420,6 +421,17 @@ function SidebarQuotaView(props: {
             RGBA.fromValues(t[0], t[1], t[2]),
           ) ?? terminalForeground)
         : terminalForeground;
+  // Expandable error rows: clicking a bounded error line reveals its
+  // detail lines (untruncated message, compact JSON on its own line).
+  const [expandedErrors, setExpandedErrors] = createSignal<Set<string>>(new Set());
+  const toggleErrorDetail = (key: string) => {
+    setExpandedErrors((previous) => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
   // Flattened lines carry the blank separators between providers, error
   // rows, and session tokens, keeping the sectioned render structurally
   // identical to the pre-sectioned panel output.
@@ -456,11 +468,24 @@ function SidebarQuotaView(props: {
       <Show when={quota()} fallback={<text fg={terminalForeground}>No quota data available</text>}>
         {(state: () => NonNullable<ReturnType<typeof quota>>) => (
           <Show when={!expandable() || open()}>
-            {flattenSidebarQuotaSections(state().sections).map((entry) => (
-              <text fg={lineForeground(entry)} wrapMode="none">
+            {flattenSidebarQuotaSections(state().sections).flatMap((entry) => [
+              <text
+                fg={lineForeground(entry)}
+                wrapMode="none"
+                onMouseDown={
+                  entry.toggleKey ? () => toggleErrorDetail(entry.toggleKey!) : undefined
+                }
+              >
                 {entry.line || " "}
-              </text>
-            ))}
+              </text>,
+              ...(entry.toggleKey && expandedErrors().has(entry.toggleKey)
+                ? (entry.detailLines?.map((line) => (
+                    <text fg={quietForeground()} wrapMode="none">
+                      {`  ${line}` || " "}
+                    </text>
+                  )) ?? [])
+                : []),
+            ])}
           </Show>
         )}
       </Show>

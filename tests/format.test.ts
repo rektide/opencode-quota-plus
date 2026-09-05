@@ -5,6 +5,7 @@ import {
   concisifyQuotaErrorMessage,
   formatProRataIndicator,
   formatQuotaErrorLine,
+  formatQuotaErrorSection,
   formatWindowElapsedLabel,
   inferWindowDurationMs,
   windowElapsedPercent,
@@ -546,16 +547,37 @@ describe("formatQuotaRows", () => {
         maxWidth: 36,
       });
       expect(line).toHaveLength(36);
-      expect(line).toMatch(/^\[OpenCode Go\]: OpenCode Go API erro…$/u);
+      expect(line).toMatch(/^\[OpenCode Go\] OpenCode Go API error…$/u);
     });
 
-    it("strips trailing account markers from labels and keeps short rows intact", () => {
+    it("brackets labels like provider headers and keeps short rows intact", () => {
       expect(
         formatQuotaErrorLine({ label: "OpenRouter", message: "Invalid key", maxWidth: 36 }),
-      ).toBe("OpenRouter: Invalid key");
+      ).toBe("[OpenRouter] Invalid key");
       expect(formatQuotaErrorLine({ label: "[OpenCode Go]*", message: "boom", maxWidth: 36 })).toBe(
-        "[OpenCode Go]: boom",
+        "[OpenCode Go] boom",
       );
+    });
+
+    it("expands to untruncated detail with compact JSON on its own line", () => {
+      const section = formatQuotaErrorSection({
+        label: "[OpenAI]",
+        message: [
+          "OpenAI API error 401: {",
+          '  "error": {',
+          '    "message": "Encountered invalid API key provided",',
+          '    "type": null',
+          "  }",
+          "}",
+        ].join("\n"),
+        maxWidth: 36,
+      });
+      expect(section.collapsed).toBe("[OpenAI] OpenAI API error 401: Enco…");
+      expect(section.detail[0]).toBe("[OpenAI] OpenAI API error 401:");
+      // The JSON body re-serializes compactly (no pretty whitespace) and
+      // hard-wraps at the panel width.
+      expect(section.detail[1]).toBe('{"error":{"message":"Encountered inv');
+      expect(section.detail[2]).toBe('alid API key provided","type":null}}');
     });
   });
 

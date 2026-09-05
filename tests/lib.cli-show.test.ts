@@ -334,7 +334,7 @@ describe("runCliShowCommand", () => {
     });
 
     expect(code).toBe(1);
-    expect(stdout.output).toContain("Copilot: Unavailable (not detected)");
+    expect(stdout.output).toContain("[Copilot] Unavailable (not detected)");
     expect(stderr.output).toBe("");
     expect(provider.fetch).not.toHaveBeenCalled();
   });

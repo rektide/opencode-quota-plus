@@ -2376,6 +2376,7 @@ describe("tui runtime helpers", () => {
     expect(buildSidebarQuotaPanelLines).toHaveBeenCalledTimes(1);
     expect(buildSidebarQuotaPanelLines).toHaveBeenNthCalledWith(1, {
       data: allWindowsData,
+      errorDetail: true,
       config: expect.objectContaining({ formatStyle: "allWindows" }),
     });
     expect(surfaces.sidebar).toEqual({
@@ -2510,6 +2511,7 @@ describe("tui runtime helpers", () => {
     );
     expect(buildSidebarQuotaPanelLines).toHaveBeenCalledWith({
       data: allWindowsData,
+      errorDetail: true,
       config: expect.objectContaining({ formatStyle: "allWindows" }),
     });
   });
@@ -2718,6 +2720,7 @@ describe("tui runtime helpers", () => {
     // sidebar → allWindowsData
     expect(buildSidebarQuotaPanelLines).toHaveBeenCalledWith({
       data: allWindowsData,
+      errorDetail: true,
       config: expect.objectContaining({ formatStyle: "allWindows" }),
     });
     // compact → singleWindowData (formatStyle=singleWindow falls back to result.data)

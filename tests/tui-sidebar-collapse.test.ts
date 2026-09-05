@@ -168,6 +168,7 @@ describe("tui-runtime linesExpanded", () => {
     });
     expect(buildSidebarQuotaPanelLinesMock).toHaveBeenNthCalledWith(2, {
       data: allWindowsData,
+      errorDetail: true,
       config: expect.objectContaining({ formatStyle: "allWindows" }),
     });
   });
@@ -238,6 +239,7 @@ describe("tui-runtime linesExpanded", () => {
     expect(buildSidebarQuotaPanelLinesMock).toHaveBeenCalledTimes(1);
     expect(buildSidebarQuotaPanelLinesMock).toHaveBeenNthCalledWith(1, {
       data: allWindowsData,
+      errorDetail: true,
       config: expect.objectContaining({ formatStyle: "allWindows" }),
     });
   });

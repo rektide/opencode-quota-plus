@@ -12,7 +12,7 @@ import {
   displayedPercentLabelWidth,
   formatDisplayedPercentLabel,
   formatProRataIndicator,
-  formatQuotaErrorLine,
+  formatQuotaErrorSection,
   formatResetCountdown,
   isResetTimeDecimals,
   padLeft,
@@ -108,6 +108,7 @@ export function formatQuotaRows(params: {
   resetTimeDecimals?: number;
   percentDecimals?: number;
   showProRataIndicator?: boolean;
+  errorDetail?: boolean;
   barTheme?: BarThemeSpec;
   sessionTokens?: SessionTokensData;
 }): string {
@@ -123,6 +124,7 @@ export function formatQuotaRows(params: {
       resetTimeDecimals: params.resetTimeDecimals,
       percentDecimals: params.percentDecimals,
       showProRataIndicator: params.showProRataIndicator,
+      errorDetail: params.errorDetail,
       barTheme: params.barTheme,
       sessionTokens: params.sessionTokens,
     });
@@ -381,9 +383,16 @@ export function formatQuotaRows(params: {
     }
   }
 
-  // Add error rows (label + message, collapsed to one bounded line).
+  // Add error rows (bracketed label + message, collapsed to one bounded
+  // line, with optional expandable detail lines).
   for (const err of params.errors ?? []) {
-    lines.push(formatQuotaErrorLine({ label: err.label, message: err.message, maxWidth }));
+    const section = formatQuotaErrorSection({
+      label: err.label,
+      message: err.message,
+      maxWidth,
+    });
+    lines.push(section.collapsed);
+    if (params.errorDetail) lines.push(...section.detail);
   }
 
   // Add session token section (if data available and non-empty)

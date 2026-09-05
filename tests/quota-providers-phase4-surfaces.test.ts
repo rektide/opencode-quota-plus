@@ -77,7 +77,7 @@ describe("quota provider four-surface formatting", () => {
     expect(command).toContain("one source unavailable");
     expect(toast).toContain("one source unavailable");
     // Sidebar clamps the error row to its 36-column width.
-    expect(sidebar).toContain("Duplicate label: one source unavail…");
+    expect(sidebar).toContain("[Duplicate label] one source unavai…");
     expect(sidebar.split("\n").every((line) => line.length <= 36)).toBe(true);
     expect(compact).toContain("issue");
   });

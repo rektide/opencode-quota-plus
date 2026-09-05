@@ -393,6 +393,7 @@ function buildSidebarPanelFromData(params: {
   const expandedLines = params.result.allWindowsData
     ? (buildSidebarQuotaPanelLines({
         data: params.result.allWindowsData,
+        errorDetail: true,
         config: { ...params.runtime.config, formatStyle: "allWindows" },
       }) ?? [])
     : [];

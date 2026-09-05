@@ -12,6 +12,7 @@ export const TUI_SIDEBAR_LAYOUT = {
 
 export function buildSidebarQuotaPanelLines(params: {
   data: QuotaRenderData;
+  errorDetail?: boolean;
   config: Pick<
     QuotaToastConfig,
     | "formatStyle"
@@ -36,6 +37,7 @@ export function buildSidebarQuotaPanelLines(params: {
     resetTimeDecimals: params.config.resetTimeDecimals,
     percentDecimals: params.config.percentDecimals,
     showProRataIndicator: params.config.showProRataIndicator,
+    errorDetail: params.errorDetail,
     barTheme: params.config.barTheme,
     sessionTokens: data.sessionTokens,
   });

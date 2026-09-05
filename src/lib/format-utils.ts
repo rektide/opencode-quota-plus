@@ -9,6 +9,7 @@
 
 import { type BarThemeDefinition, type BarThemeMetrics, getBarTheme } from "./bar-theme.js";
 import { sanitizeSingleLineDisplayText } from "./display-sanitize.js";
+import { formatGroupedHeader } from "./grouped-header-format.js";
 import type { PercentDisplayMode } from "./types.js";
 
 /** Left partial blocks by filled eighths (index 1-7; 0 and 8 are whole cells). */
@@ -501,22 +502,120 @@ export function concisifyQuotaErrorMessage(raw: string): string {
 }
 
 /**
- * Render one bounded error row: a normalized label (trailing account
- * markers dropped), a single-line message, and an ellipsis truncation to
- * the surface width so provider error bodies cannot spill past the panel.
+/**
+ * Normalize an error label to the provider-header bracket form:
+ * "OpenRouter" -> "[OpenRouter]", "[OpenAI]" stays, trailing account
+ * markers drop ("[OpenCode Go]*" -> "[OpenCode Go]").
+ */
+function normalizeQuotaErrorLabel(raw: string): string {
+  return formatGroupedHeader(raw)
+    .replace(/\*+\s*$/u, "")
+    .trim();
+}
+
+/** Word-wrap text; the first line gets its own budget, later ones another. */
+function wrapDetailLines(
+  text: string,
+  firstWidth: number,
+  restWidth: number,
+  maxLines: number,
+): string[] {
+  const words = text.split(/\s+/u).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  let width = firstWidth;
+  for (const word of words) {
+    for (const chunk of word.length > width
+      ? (word.match(new RegExp(`.{1,${width}}`, "gu")) ?? [])
+      : [word]) {
+      const candidate = current ? `${current} ${chunk}` : chunk;
+      if (candidate.length <= width) {
+        current = candidate;
+        continue;
+      }
+      if (current) {
+        lines.push(current);
+        if (lines.length >= maxLines) return lines;
+        width = restWidth;
+      }
+      current = chunk.slice(0, width);
+    }
+  }
+  if (current && lines.length < maxLines) lines.push(current);
+  return lines;
+}
+
+/** Hard-chunk a compact JSON line (no whitespace to wrap on). */
+function chunkJsonLine(text: string, width: number, maxLines: number): string[] {
+  const lines: string[] = [];
+  for (let i = 0; i < text.length && lines.length < maxLines; i += width) {
+    lines.push(text.slice(i, i + width));
+  }
+  return lines;
+}
+
+/**
+ * Render one bounded error row: a header-form bracketed label
+ * ("[OpenRouter] message…") truncated with an ellipsis to the surface
+ * width so provider error bodies cannot spill past the panel.
  */
 export function formatQuotaErrorLine(params: {
   label?: string;
   message: string;
   maxWidth: number;
 }): string {
-  const label = sanitizeSingleLineDisplayText(params.label ?? "")
-    .replace(/\*+\s*$/u, "")
-    .trim();
-  const message = concisifyQuotaErrorMessage(params.message);
-  const prefix = label ? `${label}: ` : "";
+  return formatQuotaErrorSection(params).collapsed;
+}
+
+/**
+ * Render an error row plus its expandable detail. The collapsed row shows
+ * the bracketed label and a concise single-line message (a trailing JSON
+ * error body reduces to its message text). The detail lines carry the
+ * untruncated message and, when the provider error included a JSON body,
+ * its compact re-serialization on its own line — whitespace is not left
+ * inside the JSON; long lines wrap to the surface width.
+ */
+export function formatQuotaErrorSection(params: {
+  label?: string;
+  message: string;
+  maxWidth: number;
+}): { collapsed: string; detail: string[] } {
+  const label = normalizeQuotaErrorLabel(sanitizeSingleLineDisplayText(params.label ?? ""));
+  const prefix = label ? `${label} ` : "";
+  const collapsedMessage = concisifyQuotaErrorMessage(params.message);
   const budget = Math.max(1, params.maxWidth - prefix.length);
-  const body =
-    message.length > budget ? (budget <= 1 ? "…" : `${message.slice(0, budget - 1)}…`) : message;
-  return `${prefix}${body}`.slice(0, params.maxWidth);
+  const collapsedBody =
+    collapsedMessage.length > budget
+      ? budget <= 1
+        ? "…"
+        : `${collapsedMessage.slice(0, budget - 1)}…`
+      : collapsedMessage;
+
+  const detail: string[] = [];
+  const raw = sanitizeSingleLineDisplayText(params.message);
+  const trailingJson = raw.match(/\{.*\}\s*$/u);
+  let head = raw;
+  if (trailingJson?.index !== undefined) {
+    head = raw.slice(0, trailingJson.index).trim();
+    try {
+      const compact = JSON.stringify(JSON.parse(trailingJson[0]));
+      if (compact) detail.push(...chunkJsonLine(compact, params.maxWidth, 4));
+    } catch {
+      // Already-truncated JSON: keep it as ordinary text below.
+      head = raw;
+    }
+  }
+  if (head) {
+    const wrapped = wrapDetailLines(
+      head,
+      Math.max(1, params.maxWidth - prefix.length),
+      Math.max(1, params.maxWidth - 2),
+      4,
+    );
+    detail.unshift(
+      ...wrapped.map((line, index) => (index === 0 ? `${prefix}${line}` : `  ${line}`)),
+    );
+  }
+
+  return { collapsed: `${prefix}${collapsedBody}`.slice(0, params.maxWidth), detail };
 }

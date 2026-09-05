@@ -11,7 +11,7 @@
 import { resolveBarTheme } from "./bar-theme.js";
 import { sanitizeQuotaRenderData } from "./display-sanitize.js";
 import { formatQuotaRows } from "./format.js";
-import { barThemeMetricsForEntry, formatQuotaErrorLine } from "./format-utils.js";
+import { barThemeMetricsForEntry, formatQuotaErrorSection } from "./format-utils.js";
 import { groupQuotaEntries } from "./grouped-entry-normalization.js";
 import { getQuotaFormatStyleDefinition, type QuotaFormatStyle } from "./quota-format-style.js";
 import type { QuotaRenderData } from "./quota-render-data.js";
@@ -26,6 +26,8 @@ import type { QuotaToastConfig } from "./types.js";
 export interface SidebarQuotaSectionRow {
   /** Formatted line(s) for one quota entry (tiny layouts collapse to one). */
   lines: string[];
+  /** Expandable error detail lines, revealed on demand where supported. */
+  detailLines?: string[];
   /** Entry-visibility quiet hint: render subdued where supported. */
   quiet: boolean;
   /** Color layer name from the entry's resolved bar theme, if any. */
@@ -48,12 +50,19 @@ export type SidebarQuotaFlatLine = {
   line: string;
   quiet: boolean;
   color?: string;
+  /** Error detail lines shown when this row is expanded. */
+  detailLines?: string[];
+  /** Stable identity for interactive expansion of this row. */
+  toggleKey?: string;
 };
 
 /**
  * Flattens sections to display lines, inserting a blank separator line
  * between sections — matching the pre-sectioned panel output where
  * providers, error rows, and session tokens were visually grouped.
+ * Detail lines ride along on their row; callers decide whether to show
+ * them, so the flattened collapsed stream stays identical to the
+ * panel-lines formatter.
  */
 export function flattenSidebarQuotaSections(
   sections: readonly SidebarQuotaSection[],
@@ -63,10 +72,12 @@ export function flattenSidebarQuotaSections(
     const body: SidebarQuotaFlatLine[] = [
       ...(section.headerLine ? [{ line: section.headerLine, quiet: false }] : []),
       ...section.rows.flatMap((row) =>
-        row.lines.map((line) => ({
+        row.lines.map((line, index) => ({
           line,
           quiet: row.quiet,
           ...(row.color ? { color: row.color } : {}),
+          ...(row.detailLines && index === 0 ? { detailLines: row.detailLines } : {}),
+          ...(row.detailLines && index === 0 && section.key ? { toggleKey: section.key } : {}),
         })),
       ),
     ];
@@ -155,19 +166,20 @@ export function buildSidebarQuotaSections(params: {
   }
 
   for (const error of data.errors) {
+    // Error rows render dimmed with their detail hidden until expanded.
+    const section = formatQuotaErrorSection({
+      label: error.label,
+      message: error.message,
+      maxWidth: TUI_SIDEBAR_MAX_WIDTH,
+    });
     sections.push({
       key: `error:${error.label}:${error.message}`,
       headerLine: null,
       rows: [
         {
-          lines: [
-            formatQuotaErrorLine({
-              label: error.label,
-              message: error.message,
-              maxWidth: TUI_SIDEBAR_MAX_WIDTH,
-            }),
-          ],
-          quiet: false,
+          lines: [section.collapsed],
+          ...(section.detail.length > 0 ? { detailLines: section.detail } : {}),
+          quiet: true,
         },
       ],
       error: true,
