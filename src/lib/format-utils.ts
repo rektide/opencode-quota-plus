@@ -568,12 +568,22 @@ export function formatQuotaErrorLine(params: {
 }
 
 /**
+ * Credential-failure detector for the canned collapsed summary. Matches
+ * invalid/incorrect/expired/revoked/missing/unauthorized/bad modifiers
+ * near token/key/credential/auth nouns, plus bare 401s.
+ */
+const INVALID_CREDENTIAL_RE =
+  /\b(?:invalid|incorrect|expired|revoked|missing|unauthorized|bad)\b[^\n]{0,48}\b(?:token|key|credential|auth)s?\b|\b401\b|\bunauthorized\b/iu;
+
+/**
  * Render an error row plus its expandable detail. The collapsed row shows
- * the bracketed label and a concise single-line message (a trailing JSON
- * error body reduces to its message text). The detail lines carry the
- * untruncated message and, when the provider error included a JSON body,
- * its compact re-serialization on its own line — whitespace is not left
- * inside the JSON; long lines wrap to the surface width.
+ * the bracketed label and a concise single-line message; credential
+ * failures collapse to the canned "invalid credentials" summary, keeping
+ * the real provider text for the expanded view. A trailing JSON error
+ * body reduces to its message text in the summary, while the detail lines
+ * carry the untruncated message and the JSON's compact re-serialization
+ * on its own line — whitespace is not left inside the JSON; long lines
+ * wrap to the surface width.
  */
 export function formatQuotaErrorSection(params: {
   label?: string;
@@ -583,13 +593,15 @@ export function formatQuotaErrorSection(params: {
   const label = normalizeQuotaErrorLabel(sanitizeSingleLineDisplayText(params.label ?? ""));
   const prefix = label ? `${label} ` : "";
   const collapsedMessage = concisifyQuotaErrorMessage(params.message);
+  const canned = INVALID_CREDENTIAL_RE.test(collapsedMessage) ? "invalid credentials" : null;
   const budget = Math.max(1, params.maxWidth - prefix.length);
   const collapsedBody =
-    collapsedMessage.length > budget
+    canned ??
+    (collapsedMessage.length > budget
       ? budget <= 1
         ? "…"
         : `${collapsedMessage.slice(0, budget - 1)}…`
-      : collapsedMessage;
+      : collapsedMessage);
 
   const detail: string[] = [];
   const raw = sanitizeSingleLineDisplayText(params.message);

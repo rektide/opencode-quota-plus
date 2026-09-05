@@ -552,32 +552,58 @@ describe("formatQuotaRows", () => {
 
     it("brackets labels like provider headers and keeps short rows intact", () => {
       expect(
-        formatQuotaErrorLine({ label: "OpenRouter", message: "Invalid key", maxWidth: 36 }),
-      ).toBe("[OpenRouter] Invalid key");
+        formatQuotaErrorLine({ label: "OpenRouter", message: "quota endpoint down", maxWidth: 36 }),
+      ).toBe("[OpenRouter] quota endpoint down");
       expect(formatQuotaErrorLine({ label: "[OpenCode Go]*", message: "boom", maxWidth: 36 })).toBe(
         "[OpenCode Go] boom",
       );
     });
 
-    it("expands to untruncated detail with compact JSON on its own line", () => {
-      const section = formatQuotaErrorSection({
-        label: "[OpenAI]",
-        message: [
-          "OpenAI API error 401: {",
-          '  "error": {',
-          '    "message": "Encountered invalid API key provided",',
-          '    "type": null',
-          "  }",
-          "}",
-        ].join("\n"),
-        maxWidth: 36,
-      });
-      expect(section.collapsed).toBe("[OpenAI] OpenAI API error 401: Enco…");
+    it("collapses credential failures to a canned summary unless expanded", () => {
+      const message = [
+        "OpenAI API error 401: {",
+        '  "error": {',
+        '    "message": "Encountered invalid API key provided",',
+        '    "type": null',
+        "  }",
+        "}",
+      ].join("\n");
+      const section = formatQuotaErrorSection({ label: "[OpenAI]", message, maxWidth: 36 });
+      expect(section.collapsed).toBe("[OpenAI] invalid credentials");
+      // The expanded view keeps the real provider text and compact JSON.
       expect(section.detail[0]).toBe("[OpenAI] OpenAI API error 401:");
-      // The JSON body re-serializes compactly (no pretty whitespace) and
-      // hard-wraps at the panel width.
       expect(section.detail[1]).toBe('{"error":{"message":"Encountered inv');
       expect(section.detail[2]).toBe('alid API key provided","type":null}}');
+    });
+
+    it("matches token/key wording for the canned summary but not parse errors", () => {
+      expect(
+        formatQuotaErrorLine({
+          label: "Z.ai",
+          message: "refresh token rejected: invalid token",
+          maxWidth: 36,
+        }),
+      ).toBe("[Z.ai] invalid credentials");
+      expect(
+        formatQuotaErrorLine({
+          label: "DeepSeek",
+          message: "insufficient balance 402: top up",
+          maxWidth: 36,
+        }),
+      ).toBe("[DeepSeek] insufficient balance 402…");
+    });
+
+    it("expands non-credential errors to untruncated detail with compact JSON on its own line", () => {
+      const section = formatQuotaErrorSection({
+        label: "[OpenCode Go]*",
+        message: "OpenCode Go API error 503: upstream unavailable",
+        maxWidth: 36,
+      });
+      expect(section.collapsed).toBe("[OpenCode Go] OpenCode Go API error…");
+      expect(section.detail).toEqual([
+        "[OpenCode Go] OpenCode Go API error",
+        "  503: upstream unavailable",
+      ]);
     });
   });
 

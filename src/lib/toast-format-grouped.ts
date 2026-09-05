@@ -425,8 +425,12 @@ export function formatQuotaRowsGrouped(params: {
     }
   }
 
+  // Error rows pack together: one blank before the first error, none
+  // between them. Credential failures collapse to their canned summary.
+  let pushedFirstError = false;
   for (const err of params.errors ?? []) {
-    if (lines.length > 0) lines.push("");
+    if (lines.length > 0 && !pushedFirstError) lines.push("");
+    pushedFirstError = true;
     const section = formatQuotaErrorSection({
       label: err.label,
       message: err.message,

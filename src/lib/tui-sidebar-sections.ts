@@ -68,6 +68,7 @@ export function flattenSidebarQuotaSections(
   sections: readonly SidebarQuotaSection[],
 ): SidebarQuotaFlatLine[] {
   const lines: SidebarQuotaFlatLine[] = [];
+  let previousWasError = false;
   for (const section of sections) {
     const body: SidebarQuotaFlatLine[] = [
       ...(section.headerLine ? [{ line: section.headerLine, quiet: false }] : []),
@@ -82,8 +83,13 @@ export function flattenSidebarQuotaSections(
       ),
     ];
     if (body.length === 0) continue;
-    if (lines.length > 0) lines.push({ line: "", quiet: false });
+    // Error sections pack together without separator blanks; the blank
+    // before the first error still sets the block off from quota rows.
+    if (lines.length > 0 && !(section.error && previousWasError)) {
+      lines.push({ line: "", quiet: false });
+    }
     lines.push(...body);
+    previousWasError = section.error === true;
   }
   return lines;
 }

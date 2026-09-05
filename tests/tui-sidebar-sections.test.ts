@@ -83,8 +83,9 @@ describe("buildSidebarQuotaSections", () => {
     const sections = buildSidebarQuotaSections({ data: allWindowsData(), config });
     const errorSection = sections.find((section) => section.error);
     expect(errorSection?.headerLine).toBeNull();
-    expect(errorSection?.rows[0]!.lines).toEqual(["[OpenRouter] Invalid openrouter-key…"]);
-    // Error rows render dimmed with expandable detail lines.
+    // Credential-shaped failures collapse to the canned summary; the real
+    // text stays available as expandable detail.
+    expect(errorSection?.rows[0]!.lines).toEqual(["[OpenRouter] invalid credentials"]);
     expect(errorSection?.rows[0]!.quiet).toBe(true);
     expect(errorSection?.rows[0]!.detailLines).toEqual([
       "[OpenRouter] Invalid",
@@ -119,7 +120,29 @@ describe("buildSidebarQuotaSections", () => {
       "[DeepSeek]",
       ...sections[1]!.rows.flatMap((row) => row.lines),
       "",
-      "[OpenRouter] Invalid openrouter-key…",
+      "[OpenRouter] invalid credentials",
+    ]);
+  });
+
+  it("packs multiple error rows without separator blanks", () => {
+    const sections = buildSidebarQuotaSections({
+      config,
+      data: {
+        entries: [{ name: "Z.ai", group: "Z.ai", label: "5h:", percentRemaining: 40 } as any],
+        errors: [
+          { label: "OpenAI", message: "OpenAI API error 401: invalid API key" },
+          { label: "OpenCode Go", message: "gateway timeout 504" },
+        ],
+      },
+    });
+    const lines = flattenSidebarQuotaSections(sections).map((entry) => entry.line);
+    // One blank after the quota block, then the error rows packed tight.
+    expect(lines).toEqual([
+      "[Z.ai]",
+      ...sections[0]!.rows.flatMap((row) => row.lines),
+      "",
+      "[OpenAI] invalid credentials",
+      "[OpenCode Go] gateway timeout 504",
     ]);
   });
 
