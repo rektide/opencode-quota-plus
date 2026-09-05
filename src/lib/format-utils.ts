@@ -267,9 +267,11 @@ export function isResetTimeDecimals(value: unknown): value is number {
 //
 // Renders a signed percentage that compares actual usage against the linear
 // pro-rata expectation for the elapsed fraction of a quota window. The
-// indicator is prepended to the reset countdown (e.g. "+25% 5.7d") so users
-// can see at a glance whether they are burning quota faster or slower than
-// the pace implied by the window's remaining time.
+// grouped renderer hoists the indicator onto the provider header line
+// (e.g. "[OpenAI] (Pro)*        (+25%)") so users can see at a glance
+// whether they are burning quota faster or slower than the pace implied by
+// the window's remaining time. The same pacing math feeds the "% done"
+// window-elapsed annotation on grouped rows.
 
 const MS_PER_MINUTE = 60_000;
 const MS_PER_WEEK = 7 * MS_PER_DAY;
@@ -337,6 +339,29 @@ export function computeProRataDeltaPct(
   entry: { percentRemaining?: number; resetTimeIso?: string; label?: string; name?: string },
   nowMs?: number,
 ): number | undefined {
+  return resolveWindowPacing(entry, nowMs)?.deltaPct;
+}
+
+/**
+ * Percent of a quota window's time that has elapsed (the linear pace the
+ * pro-rata delta compares actual usage against). Rendered as the "% done"
+ * annotation on grouped rows, stacked over the bar's "% used"/"% left"
+ * suffix so time progress and quota progress compare vertically.
+ * Undefined when the window duration is unknown or the reset time is
+ * missing/past/invalid.
+ */
+export function windowElapsedPercent(
+  entry: { percentRemaining?: number; resetTimeIso?: string; label?: string; name?: string },
+  nowMs?: number,
+): number | undefined {
+  return resolveWindowPacing(entry, nowMs)?.expectedUsagePct;
+}
+
+/** Resolved linear pacing facts for one quota window, or undefined. */
+function resolveWindowPacing(
+  entry: { percentRemaining?: number; resetTimeIso?: string; label?: string; name?: string },
+  nowMs?: number,
+): { expectedUsagePct: number; deltaPct: number } | undefined {
   if (!entry.resetTimeIso) return undefined;
   if (entry.percentRemaining === undefined) return undefined;
 
@@ -353,9 +378,9 @@ export function computeProRataDeltaPct(
   const elapsedMs = Math.max(0, Math.min(durationMs, durationMs - remainingMs));
   const expectedUsagePct = (elapsedMs / durationMs) * 100;
   const actualUsagePct = 100 - entry.percentRemaining;
-  const diffPct = actualUsagePct - expectedUsagePct;
+  const deltaPct = actualUsagePct - expectedUsagePct;
 
-  return Number.isFinite(diffPct) ? diffPct : undefined;
+  return Number.isFinite(deltaPct) ? { expectedUsagePct, deltaPct } : undefined;
 }
 
 /**
@@ -405,39 +430,37 @@ export function barThemeMetricsForEntry(
  * missing/invalid.
  *
  * The value is always signed ("+" for non-negative, "-" for negative) and
- * rounded to the nearest integer percent.
+ * rounded to the requested decimal resolution.
  */
 export function formatProRataIndicator(
   entry: { percentRemaining?: number; resetTimeIso?: string; label?: string; name?: string },
   opts?: FormatProRataIndicatorOptions,
 ): string {
   if (opts?.enabled === false) return "";
-  if (!entry.resetTimeIso) return "";
-  if (entry.percentRemaining === undefined) return "";
-
-  const durationMs = inferWindowDurationMs({ label: entry.label, name: entry.name });
-  if (durationMs === null) return "";
-
-  const resetMs = new Date(entry.resetTimeIso).getTime();
-  if (!Number.isFinite(resetMs)) return "";
-
-  const nowMs =
-    typeof opts?.nowMs === "number" && Number.isFinite(opts.nowMs) ? opts.nowMs : Date.now();
-  const remainingMs = resetMs - nowMs;
-  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return "";
-
-  const elapsedMs = Math.max(0, Math.min(durationMs, durationMs - remainingMs));
-  const expectedUsagePct = (elapsedMs / durationMs) * 100;
-  const actualUsagePct = 100 - entry.percentRemaining;
-  const diffPct = actualUsagePct - expectedUsagePct;
-
-  if (!Number.isFinite(diffPct)) return "";
+  const deltaPct = computeProRataDeltaPct(entry, opts?.nowMs);
+  if (deltaPct === undefined) return "";
 
   const decimals = opts?.decimals ?? 0;
   if (decimals > 0) {
-    return `${diffPct >= 0 ? "+" : "-"}${Math.abs(diffPct).toFixed(decimals)}%`;
+    return `${deltaPct >= 0 ? "+" : "-"}${Math.abs(deltaPct).toFixed(decimals)}%`;
   }
-  const rounded = Math.round(diffPct);
+  const rounded = Math.round(deltaPct);
   const sign = rounded >= 0 ? "+" : "-";
   return `${sign}${Math.abs(rounded)}%`;
+}
+
+/**
+ * Format the window-elapsed pace annotation ("19% done") for a grouped
+ * row's label line. Returns "" when the elapsed fraction cannot be
+ * computed, matching the conditions that suppress the pro-rata indicator.
+ */
+export function formatWindowElapsedLabel(
+  entry: { percentRemaining?: number; resetTimeIso?: string; label?: string; name?: string },
+  opts?: { nowMs?: number; decimals?: number },
+): string {
+  const elapsed = windowElapsedPercent(entry, opts?.nowMs);
+  if (elapsed === undefined) return "";
+  const decimals = opts?.decimals ?? 0;
+  const displayed = decimals > 0 ? elapsed.toFixed(decimals) : String(Math.round(elapsed));
+  return `${displayed}% done`;
 }

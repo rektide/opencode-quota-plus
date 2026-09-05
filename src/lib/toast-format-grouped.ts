@@ -16,6 +16,7 @@ import {
   formatDisplayedPercentLabel,
   formatProRataIndicator,
   formatResetCountdown,
+  formatWindowElapsedLabel,
   isResetTimeDecimals,
   padLeft,
   padRight,
@@ -181,9 +182,7 @@ export function formatGroupedQuotaEntryLines(
         return [padLeft(suffix, maxWidth)];
       }
       const leftText = label.slice(0, availableLabelWidth).trimEnd();
-      return [
-        `${padRight(leftText, availableLabelWidth)}${suffix ? `${separator}${suffix}` : ""}`,
-      ];
+      return [`${padRight(leftText, availableLabelWidth)}${suffix ? `${separator}${suffix}` : ""}`];
     }
 
     if (isTiny) {
@@ -229,8 +228,7 @@ export function formatGroupedQuotaEntryLines(
   // A "value row" has no explicit label and carries a `right` summary to be
   // shown instead of a name. When present, the `right` is justified to the
   // edges of line 1 (left + right) and no reset countdown is shown.
-  const isValueRow =
-    !entry.label?.trim() && !entry.metricLabel?.trim() && !!entry.right?.trim();
+  const isValueRow = !entry.label?.trim() && !entry.metricLabel?.trim() && !!entry.right?.trim();
   const displayedPercent = resolveDisplayedPercent(
     interpretation.display.percentRemaining,
     params.percentDisplayMode,
@@ -251,16 +249,19 @@ export function formatGroupedQuotaEntryLines(
           decimals: params.resetTimeDecimals,
         })
       : "";
-  // Pro-rata burn-rate indicator is suppressed in tiny layouts, and
-  // dropped when it would force additional label truncation. Otherwise
-  // it is prepended to the reset countdown (e.g. "+25% 5.7d").
-  const proRata =
-    !isTiny &&
-    formatProRataIndicator(entry, {
-      enabled: params.showProRataIndicator,
-      decimals: params.percentDecimals,
-    });
-  const fullTimeStr = proRata && countdown ? `${proRata} ${countdown}` : proRata || countdown;
+  // The pro-rata burn-rate indicator lives on the provider header line
+  // (see formatGroupedProviderHeaderLine); the row instead carries the
+  // window-elapsed pace annotation ("19% done") after the countdown, so
+  // time progress stacks directly over the bar line's "% used"/"% left".
+  // The elapsed annotation is suppressed in tiny layouts and dropped
+  // first when the line would overflow.
+  const doneLabel = !isTiny
+    ? formatWindowElapsedLabel(entry, {
+        nowMs: params.nowMs,
+        decimals: params.percentDecimals,
+      })
+    : "";
+  const fullTimeStr = [countdown, doneLabel].filter(Boolean).join(" ");
   const compactLineWidth = label.length + separator.length + fullTimeStr.length;
   const timeStr = compactLineWidth <= maxWidth ? fullTimeStr : countdown;
 
@@ -334,6 +335,37 @@ export function formatGroupedQuotaEntryLines(
   return lines;
 }
 
+/**
+ * Provider header line with the group's pro-rata indicators hoisted to the
+ * right edge, parenthesized and space-separated. With multiple windows the
+ * top-most row's indicator sits right-most, so the header annotations map
+ * onto row order reading right-to-left. Without computable indicators the
+ * header is the plain normalized group title.
+ */
+export function formatGroupedProviderHeaderLine(params: {
+  group: string;
+  entries: readonly QuotaToastEntry[];
+  rowParams: GroupedRowLayoutParams;
+}): string {
+  const { maxWidth } = params.rowParams;
+  const header = formatGroupedHeader(params.group);
+  const indicators = params.entries
+    .map((entry) =>
+      formatProRataIndicator(entry, {
+        enabled: params.rowParams.showProRataIndicator,
+        decimals: params.rowParams.percentDecimals,
+        nowMs: params.rowParams.nowMs,
+      }),
+    )
+    .filter((text) => text.length > 0)
+    .map((text) => `(${text})`);
+  if (indicators.length === 0) return header.slice(0, maxWidth);
+
+  const right = indicators.reverse().join(" ");
+  const headerWidth = Math.max(1, maxWidth - right.length - 1);
+  return (padRight(header, headerWidth) + " " + right).slice(0, maxWidth);
+}
+
 export function formatQuotaRowsGrouped(params: {
   layout?: {
     maxWidth: number;
@@ -385,7 +417,7 @@ export function formatQuotaRowsGrouped(params: {
     const list = groups.get(g) ?? [];
     if (gi > 0) lines.push("");
 
-    lines.push(formatGroupedHeader(g).slice(0, maxWidth));
+    lines.push(formatGroupedProviderHeaderLine({ group: g, entries: list, rowParams }));
 
     for (const entry of list) {
       lines.push(...formatGroupedQuotaEntryLines(entry, rowParams));

@@ -393,7 +393,12 @@ Leave it unset to keep integer percents with the suffix.
 <details>
 <summary><strong>Show pro-rata burn-rate indicator</strong></summary>
 
-By default each reset countdown is prefixed with a signed pro-rata delta, for example `+25% 5.7d` or `-10% 1.4h`. The delta compares your actual usage percentage against the linear pro-rata expectation for the elapsed fraction of the window. Example: a weekly window 25% elapsed with 50% actual usage renders `+25%` (using 25 percentage points more than the pro-rata pace). Applies to the Sidebar panel, popup toasts, `/quota`, and `opencode-quota show`.
+By default quota rows carry a signed pro-rata delta comparing your actual usage percentage against the linear pro-rata expectation for the elapsed fraction of the window. Example: a weekly window 25% elapsed with 50% actual usage renders `+25%` (using 25 percentage points more than the pro-rata pace). Requires a known window duration (5h, 1h, daily, weekly, monthly, yearly, RPM); otherwise omitted. Monthly and yearly durations are 30-/365-day approximations.
+
+Where the delta appears depends on the surface:
+
+- **Grouped output** (Sidebar panel and popup toasts with `formatStyle: "allWindows"`/`"grouped"`): the indicators are hoisted onto the provider header line, parenthesized and right-justified — for example `[OpenAI] (Pro)        (+8%)`. With multiple windows the indicators are space-separated with the top-most row right-most. Grouped rows also annotate the window-elapsed pace on the label line (`5.7d 19% done`), stacked directly over the bar line's `27% used` so time progress and quota progress compare vertically.
+- **Other surfaces** (`/quota`, `opencode-quota show`, classic single-window rows): each reset countdown is prefixed with the delta, for example `+25% 5.7d` or `-10% 1.4h`.
 
 ```jsonc
 {
@@ -401,7 +406,7 @@ By default each reset countdown is prefixed with a signed pro-rata delta, for ex
 }
 ```
 
-Set to `false` to render only the reset countdown. The indicator is only shown when the window duration can be inferred from the label/name (5h, 1h, daily, weekly, monthly, yearly, RPM). Monthly and yearly durations are 30-/365-day approximations.
+Set to `false` to omit the delta everywhere. The window-elapsed `% done` annotation on grouped rows is independent of this setting and only needs a known window duration and reset time.
 
 </details>
 
@@ -483,7 +488,7 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `accountingDetail`            | `summary`      | Provider-neutral accounting detail across human surfaces: `summary` keeps primary rows; `detailed` also admits supplementary rows and fuller basis detail when width allows. Independent of `formatStyle` and `percentDisplayMode`.                                                                                |
 | `resetTimeDecimals`           | unset          | Decimal places for compact reset countdowns in popup toasts, the Sidebar panel, and terminal `show`. Accepts integers `0`–`4`; unset preserves the default integer-day and half-hour-step display.                                                                                                                  |
 | `percentDecimals`             | unset          | Decimal places for percent labels and the pro-rata indicator across all surfaces (e.g. `74.4%`, `+2.5%`). Accepts integers `0`–`2`; when set, the `used`/`left` label suffix is dropped. Unset keeps integer percents with the suffix.                                                                             |
-| `showProRataIndicator`        | `true`         | When `true`, prefix each reset countdown with a signed pro-rata burn-rate delta, for example `+25% 5.7d` (using 25 percentage points more than the linear pro-rata pace). Requires a known window duration (5h/1h/daily/weekly/monthly/yearly/RPM); otherwise omitted.                                             |
+| `showProRataIndicator`        | `true`         | When `true`, show the signed pro-rata burn-rate delta (using 25 percentage points more than the linear pro-rata pace, for example). Grouped surfaces hoist it onto the provider header, e.g. `[OpenAI] (Pro)        (+8%)`; other surfaces prefix each reset countdown, e.g. `+25% 5.7d`. Requires a known window duration (5h/1h/daily/weekly/monthly/yearly/RPM); otherwise omitted.                                             |
 | `barTheme`                    | `"classic"`    | Bar theme spec: a property stack of character themes, colors, and conditional rules — entries merge left to right, last value per property wins. Characters: `classic`, `solid`, `shade`, `soft`, `smooth`, `dots`, `rings`, `squares`, `smol`, `heavy`, `light`, `halves`. Colors: host theme tokens, CSS names, or `#rrggbb`. Conditions: `prorata`, `used`, `percent`, `hours`. |
 | `onlyCurrentModel`            | `false`        | Filter quota rows to the current model/provider when that session selection can be resolved.                                                                                                                                                                                                                        |
 | `hiddenEntries`               | `[]`           | Entry-visibility patterns (`provider[:window\|accounting]`, e.g. `zai:mcp`, `deepseek:balance`, `*:mcp`) whose rows are removed from every display surface. `/quota_status` and JSON exports keep reporting them.                                                                                                    |

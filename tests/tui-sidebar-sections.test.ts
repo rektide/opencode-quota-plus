@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { QuotaRenderData } from "../src/lib/quota-render-data.js";
-import { buildSidebarQuotaPanelLines } from "../src/lib/tui-sidebar-format.js";
+import {
+  buildSidebarQuotaPanelLines,
+  TUI_SIDEBAR_MAX_WIDTH,
+} from "../src/lib/tui-sidebar-format.js";
 import {
   buildSidebarQuotaSections,
   flattenSidebarQuotaSections,
@@ -124,6 +127,52 @@ describe("buildSidebarQuotaSections", () => {
     expect(flat[mcpIndex]?.quiet).toBe(true);
     const fiveHourIndex = flat.findIndex((entry) => entry.line.includes("5h"));
     expect(flat[fiveHourIndex]?.quiet).toBe(false);
+  });
+
+  it("hoists pro-rata indicators onto section headers and elapsed pace onto rows", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-05T12:00:00.000Z"));
+
+    // Two windows, shortest first: 5h (30% used, 50% elapsed -> -20%) and
+    // Weekly (50% used, 25% elapsed -> +25%). The top-most row (5h) keeps
+    // the right-most header slot.
+    const reset5h = new Date(
+      new Date("2026-09-05T12:00:00.000Z").getTime() + 0.5 * 5 * 3_600_000,
+    ).toISOString();
+    const resetWeekly = new Date(
+      new Date("2026-09-05T12:00:00.000Z").getTime() + 0.75 * 7 * 86_400_000,
+    ).toISOString();
+    const sections = buildSidebarQuotaSections({
+      config: { ...config, showProRataIndicator: true },
+      data: {
+        entries: [
+          {
+            accounting: accounting("quota"),
+            name: "Z.ai",
+            group: "Z.ai",
+            label: "5h:",
+            percentRemaining: 70,
+            resetTimeIso: reset5h,
+          },
+          {
+            accounting: accounting("quota"),
+            name: "Z.ai",
+            group: "Z.ai",
+            label: "Weekly:",
+            percentRemaining: 50,
+            resetTimeIso: resetWeekly,
+          },
+        ],
+        errors: [],
+        sessionTokens: undefined,
+      },
+    });
+
+    expect(sections[0]!.headerLine).toMatch(/^\[Z\.ai\]\s+\(\+25%\)\s+\(-20%\)$/u);
+    expect(sections[0]!.headerLine).toHaveLength(TUI_SIDEBAR_MAX_WIDTH);
+    const rowLines = sections[0]!.rows.flatMap((row) => row.lines);
+    expect(rowLines[0]).toMatch(/2\.5h 50% done$/u);
+    expect(rowLines[2]).toMatch(/5d 25% done$/u);
   });
 
   it("emits no provider header in singleWindow style where names carry identity", () => {

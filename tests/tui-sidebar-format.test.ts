@@ -346,6 +346,47 @@ describe("buildSidebarQuotaPanelLines", () => {
     expect(rendered).not.toContain("0% used");
   });
 
+  it("hoists the pro-rata indicator onto the grouped header and annotates elapsed pace", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-05T12:00:00.000Z"));
+
+    // Weekly window: 5.7d of 7d remain -> ~19% elapsed; 27% used -> +8% pace.
+    const resetIso = new Date(
+      new Date("2026-09-05T12:00:00.000Z").getTime() + 5.7 * 86_400_000,
+    ).toISOString();
+    const lines = buildSidebarQuotaPanelLines({
+      config: {
+        formatStyle: "allWindows",
+        percentDisplayMode: "used",
+        resetTimeDecimals: 1,
+        showProRataIndicator: true,
+      },
+      data: {
+        entries: [
+          {
+            name: "OpenAI",
+            group: "[OpenAI] (Pro)*",
+            label: "Weekly:",
+            percentRemaining: 73,
+            resetTimeIso: resetIso,
+          },
+        ],
+        errors: [],
+        sessionTokens: undefined,
+      },
+    });
+
+    // Header keeps the marker form and right-justifies the parenthesized
+    // indicator to the same edge the bar-line percent uses.
+    expect(lines[0]).toMatch(/^\[OpenAI\] \(Pro\)\*\s+\(\+8%\)$/u);
+    expect(lines[0]).toHaveLength(TUI_SIDEBAR_MAX_WIDTH);
+    // Row line 1 keeps the crucial countdown, followed by elapsed "19% done".
+    expect(lines[1]).toMatch(/5\.7d 19% done$/u);
+    // Bar line unchanged: bar + used percent at the right edge.
+    expect(lines[2]).toMatch(/█+░*\s+27% used$/u);
+    expect(lines.every((line) => line.length <= TUI_SIDEBAR_MAX_WIDTH)).toBe(true);
+  });
+
   it("uses compact rounded reset text in sidebar rows", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-15T10:00:00.000Z"));

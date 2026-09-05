@@ -13,11 +13,11 @@ import { sanitizeQuotaRenderData } from "./display-sanitize.js";
 import { formatQuotaRows } from "./format.js";
 import { barThemeMetricsForEntry } from "./format-utils.js";
 import { groupQuotaEntries } from "./grouped-entry-normalization.js";
-import { formatGroupedHeader } from "./grouped-header-format.js";
 import { getQuotaFormatStyleDefinition, type QuotaFormatStyle } from "./quota-format-style.js";
 import type { QuotaRenderData } from "./quota-render-data.js";
 import {
   createGroupedRowLayoutParams,
+  formatGroupedProviderHeaderLine,
   formatGroupedQuotaEntryLines,
 } from "./toast-format-grouped.js";
 import { TUI_SIDEBAR_LAYOUT } from "./tui-sidebar-format.js";
@@ -129,7 +129,7 @@ export function buildSidebarQuotaSections(params: {
     const explicit = explicitGroups.has(group);
     sections.push({
       key: group,
-      headerLine: explicit ? formatGroupedHeader(group) : null,
+      headerLine: explicit ? formatGroupedProviderHeaderLine({ group, entries, rowParams }) : null,
       rows: entries.map((entry) => {
         const composed = resolveBarTheme(
           params.config.barTheme,

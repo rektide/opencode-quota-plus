@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { formatQuotaRows } from "../src/lib/format.js";
-import { formatProRataIndicator, inferWindowDurationMs } from "../src/lib/format-utils.js";
+import {
+  formatProRataIndicator,
+  formatWindowElapsedLabel,
+  inferWindowDurationMs,
+  windowElapsedPercent,
+} from "../src/lib/format-utils.js";
 import { buildSingleWindowPercentEntryDisplayName } from "../src/lib/quota-entry-display.js";
 import { SESSION_TOKEN_SECTION_HEADING } from "../src/lib/session-tokens-format.js";
 
@@ -468,6 +473,49 @@ describe("formatQuotaRows", () => {
     });
   });
 
+  describe("window elapsed pace annotation", () => {
+    const now = new Date("2026-01-15T12:00:00Z").getTime();
+    const weekMs = 7 * 86_400_000;
+
+    it("windowElapsedPercent returns the elapsed share of the window", () => {
+      // Reset in 81% of the week -> 19% elapsed.
+      const resetTime = new Date(now + 0.81 * weekMs).toISOString();
+      expect(
+        windowElapsedPercent(
+          { percentRemaining: 73, resetTimeIso: resetTime, name: "Weekly" },
+          now,
+        ),
+      ).toBeCloseTo(19, 0);
+    });
+
+    it("windowElapsedPercent is undefined under the same conditions as the indicator", () => {
+      expect(windowElapsedPercent({ percentRemaining: 50, name: "Weekly" }, now)).toBeUndefined();
+      expect(
+        windowElapsedPercent(
+          { percentRemaining: 50, resetTimeIso: "2026-01-16T00:00:00Z", name: "MCP" },
+          now,
+        ),
+      ).toBeUndefined();
+      expect(
+        windowElapsedPercent(
+          { percentRemaining: 50, resetTimeIso: "2020-01-01T00:00:00Z", name: "Weekly" },
+          now,
+        ),
+      ).toBeUndefined();
+    });
+
+    it("formatWindowElapsedLabel renders rounded and decimal forms", () => {
+      const resetTime = new Date(now + 0.814 * weekMs).toISOString();
+      const entry = { percentRemaining: 73, resetTimeIso: resetTime, name: "Weekly" };
+      expect(formatWindowElapsedLabel(entry, { nowMs: now })).toBe("19% done");
+      expect(formatWindowElapsedLabel(entry, { nowMs: now, decimals: 1 })).toBe("18.6% done");
+    });
+
+    it("formatWindowElapsedLabel returns empty without computable pacing", () => {
+      expect(formatWindowElapsedLabel({ percentRemaining: 73, name: "Weekly" }, now)).toBe("");
+    });
+  });
+
   it("renders pro-rata indicator before reset countdown when showProRataIndicator is true", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));
@@ -603,9 +651,55 @@ describe("formatQuotaRows", () => {
       ],
     });
 
-    // Short label "5h window" leaves plenty of room; indicator should appear.
-    expect(out).toContain("-20%");
-    expect(out).toMatch(/-20%\s+2\.5h/);
+    // Short label "5h window" leaves plenty of room; the indicator hoists
+    // onto the provider header, parenthesized at the right edge, while the
+    // row carries the countdown plus window-elapsed "50% done".
+    const lines = out.split("\n");
+    expect(lines[0]).toMatch(/^\[Provider\]\s+\(-20%\)$/u);
+    expect(lines[1]).toMatch(/^\s*5h\s+2\.5h 50% done$/u);
+    expect(lines[2]).toMatch(/70% left$/u);
+    expect(lines.every((line) => line.length <= 36)).toBe(true);
+  });
+
+  it("hoists one parenthesized pro-rata indicator per window onto the grouped header, top-most row right-most", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));
+
+    const resetIso = new Date(
+      new Date("2026-01-15T12:00:00.000Z").getTime() + 0.5 * 5 * 3_600_000,
+    ).toISOString();
+
+    const out = formatQuotaRows({
+      version: "1.0.0",
+      layout: { maxWidth: 36, narrowAt: 36, tinyAt: 20 },
+      showProRataIndicator: true,
+      style: "allWindows",
+      entries: [
+        {
+          name: "Provider",
+          group: "Provider",
+          label: "5h:",
+          percentRemaining: 70,
+          resetTimeIso: resetIso,
+        },
+        {
+          name: "Provider",
+          group: "Provider",
+          label: "Weekly:",
+          percentRemaining: 50,
+          resetTimeIso: new Date(
+            new Date("2026-01-15T12:00:00.000Z").getTime() + 0.75 * 7 * 86_400_000,
+          ).toISOString(),
+        },
+      ],
+    });
+
+    // Rows sort shortest-window-first, so 5h renders above Weekly and its
+    // indicator sits right-most on the header.
+    const header = out.split("\n")[0]!;
+    expect(header).toMatch(/^\[Provider\]\s+\(\+25%\)\s+\(-20%\)$/u);
+    expect(header).toHaveLength(36);
+    expect(out).not.toMatch(/\n[^\n]*[+-]\d+%\s+\d/u);
   });
 
   it("drops pro-rata indicator in narrow sidebar layout when label would truncate", () => {
