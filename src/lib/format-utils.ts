@@ -8,6 +8,7 @@
  */
 
 import { type BarThemeDefinition, type BarThemeMetrics, getBarTheme } from "./bar-theme.js";
+import { sanitizeSingleLineDisplayText } from "./display-sanitize.js";
 import type { PercentDisplayMode } from "./types.js";
 
 /** Left partial blocks by filled eighths (index 1-7; 0 and 8 are whole cells). */
@@ -463,4 +464,59 @@ export function formatWindowElapsedLabel(
   const decimals = opts?.decimals ?? 0;
   const displayed = decimals > 0 ? elapsed.toFixed(decimals) : String(Math.round(elapsed));
   return `${displayed}% done`;
+}
+
+/**
+ * Collapse a provider error message into one line: whitespace (including
+ * newlines from pretty-printed JSON bodies) becomes single spaces, and a
+ * trailing JSON error object is reduced to its message text. So
+ * `OpenAI API error 401: {"error":{"message":"Encountered invalid…"}}`
+ * renders as `OpenAI API error 401: Encountered invalid…`.
+ */
+export function concisifyQuotaErrorMessage(raw: string): string {
+  const collapsed = sanitizeSingleLineDisplayText(raw);
+  const trailingJson = collapsed.match(/\{.*\}\s*$/u);
+  if (trailingJson?.index !== undefined) {
+    try {
+      const parsed = JSON.parse(trailingJson[0]) as {
+        error?: { message?: unknown };
+        message?: unknown;
+      };
+      const extracted =
+        typeof parsed.error?.message === "string"
+          ? parsed.error.message
+          : typeof parsed.message === "string"
+            ? parsed.message
+            : undefined;
+      if (extracted?.trim()) {
+        return sanitizeSingleLineDisplayText(
+          `${collapsed.slice(0, trailingJson.index)}${extracted}`,
+        );
+      }
+    } catch {
+      // Not valid JSON (e.g. already truncated upstream); keep collapsed text.
+    }
+  }
+  return collapsed;
+}
+
+/**
+ * Render one bounded error row: a normalized label (trailing account
+ * markers dropped), a single-line message, and an ellipsis truncation to
+ * the surface width so provider error bodies cannot spill past the panel.
+ */
+export function formatQuotaErrorLine(params: {
+  label?: string;
+  message: string;
+  maxWidth: number;
+}): string {
+  const label = sanitizeSingleLineDisplayText(params.label ?? "")
+    .replace(/\*+\s*$/u, "")
+    .trim();
+  const message = concisifyQuotaErrorMessage(params.message);
+  const prefix = label ? `${label}: ` : "";
+  const budget = Math.max(1, params.maxWidth - prefix.length);
+  const body =
+    message.length > budget ? (budget <= 1 ? "…" : `${message.slice(0, budget - 1)}…`) : message;
+  return `${prefix}${body}`.slice(0, params.maxWidth);
 }

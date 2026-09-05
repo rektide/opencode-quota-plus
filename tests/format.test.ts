@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { formatQuotaRows } from "../src/lib/format.js";
 import {
+  concisifyQuotaErrorMessage,
   formatProRataIndicator,
+  formatQuotaErrorLine,
   formatWindowElapsedLabel,
   inferWindowDurationMs,
   windowElapsedPercent,
@@ -513,6 +515,47 @@ describe("formatQuotaRows", () => {
 
     it("formatWindowElapsedLabel returns empty without computable pacing", () => {
       expect(formatWindowElapsedLabel({ percentRemaining: 73, name: "Weekly" }, now)).toBe("");
+    });
+  });
+
+  describe("concise error rows", () => {
+    it("collapses pretty-printed JSON error bodies to their message", () => {
+      const raw = [
+        "OpenAI API error 401: {",
+        '  "error": {',
+        '    "message": "Encountered invalid API key",',
+        '    "type": null',
+        "  }",
+        "}",
+      ].join("\n");
+      expect(concisifyQuotaErrorMessage(raw)).toBe(
+        "OpenAI API error 401: Encountered invalid API key",
+      );
+    });
+
+    it("keeps already-truncated JSON as single-line text", () => {
+      expect(concisifyQuotaErrorMessage('boom: {"error": {"message": "trunc')).toBe(
+        'boom: {"error": {"message": "trunc',
+      );
+    });
+
+    it("bounds error rows to the surface width with an ellipsis", () => {
+      const line = formatQuotaErrorLine({
+        label: "[OpenCode Go]*",
+        message: "OpenCode Go API error 503: service unavailable right now",
+        maxWidth: 36,
+      });
+      expect(line).toHaveLength(36);
+      expect(line).toMatch(/^\[OpenCode Go\]: OpenCode Go API erro…$/u);
+    });
+
+    it("strips trailing account markers from labels and keeps short rows intact", () => {
+      expect(
+        formatQuotaErrorLine({ label: "OpenRouter", message: "Invalid key", maxWidth: 36 }),
+      ).toBe("OpenRouter: Invalid key");
+      expect(formatQuotaErrorLine({ label: "[OpenCode Go]*", message: "boom", maxWidth: 36 })).toBe(
+        "[OpenCode Go]: boom",
+      );
     });
   });
 

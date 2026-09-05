@@ -83,9 +83,7 @@ describe("buildSidebarQuotaSections", () => {
     const sections = buildSidebarQuotaSections({ data: allWindowsData(), config });
     const errorSection = sections.find((section) => section.error);
     expect(errorSection?.headerLine).toBeNull();
-    expect(errorSection?.rows[0]!.lines).toEqual([
-      "OpenRouter: Invalid openrouter-key-v1 response",
-    ]);
+    expect(errorSection?.rows[0]!.lines).toEqual(["OpenRouter: Invalid openrouter-key-…"]);
   });
 
   it("flattens to the same content as the panel-lines formatter", () => {
@@ -115,7 +113,7 @@ describe("buildSidebarQuotaSections", () => {
       "[DeepSeek]",
       ...sections[1]!.rows.flatMap((row) => row.lines),
       "",
-      "OpenRouter: Invalid openrouter-key-v1 response",
+      "OpenRouter: Invalid openrouter-key-…",
     ]);
   });
 

@@ -108,9 +108,15 @@ describe("NanoGPT structured four-surface formatting", () => {
       compactMaxWidth: 220,
     });
 
-    for (const output of [outputs.command, outputs.toast, outputs.sidebar]) {
-      expect(output).toContain("26.71801147 NANO");
-      expect(output).toContain("invalid usd_balance decimal");
+    expect(outputs.command).toContain("invalid usd_balance decimal");
+    // Width-limited surfaces keep a bounded single-line error row.
+    expect(outputs.toast).toContain("NanoGPT Balance: NanoGPT balance response returned an i…");
+    expect(outputs.sidebar).toContain("NanoGPT Balance: NanoGPT balance re…");
+    for (const [output, width] of [
+      [outputs.toast, 56],
+      [outputs.sidebar, 36],
+    ] as const) {
+      expect(output.split("\n").every((line) => line.length <= width)).toBe(true);
     }
     expect(outputs.compact).toContain("26.71801147 NANO");
     expect(outputs.compact).toContain("1 issue");

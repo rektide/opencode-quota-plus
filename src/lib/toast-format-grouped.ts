@@ -15,6 +15,7 @@ import {
   displayedPercentLabelWidth,
   formatDisplayedPercentLabel,
   formatProRataIndicator,
+  formatQuotaErrorLine,
   formatResetCountdown,
   formatWindowElapsedLabel,
   isResetTimeDecimals,
@@ -425,7 +426,7 @@ export function formatQuotaRowsGrouped(params: {
 
   for (const err of params.errors ?? []) {
     if (lines.length > 0) lines.push("");
-    lines.push(`${err.label}: ${err.message}`);
+    lines.push(formatQuotaErrorLine({ label: err.label, message: err.message, maxWidth }));
   }
 
   // Add session token summary (if data available and non-empty)

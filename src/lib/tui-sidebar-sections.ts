@@ -11,7 +11,7 @@
 import { resolveBarTheme } from "./bar-theme.js";
 import { sanitizeQuotaRenderData } from "./display-sanitize.js";
 import { formatQuotaRows } from "./format.js";
-import { barThemeMetricsForEntry } from "./format-utils.js";
+import { barThemeMetricsForEntry, formatQuotaErrorLine } from "./format-utils.js";
 import { groupQuotaEntries } from "./grouped-entry-normalization.js";
 import { getQuotaFormatStyleDefinition, type QuotaFormatStyle } from "./quota-format-style.js";
 import type { QuotaRenderData } from "./quota-render-data.js";
@@ -20,7 +20,7 @@ import {
   formatGroupedProviderHeaderLine,
   formatGroupedQuotaEntryLines,
 } from "./toast-format-grouped.js";
-import { TUI_SIDEBAR_LAYOUT } from "./tui-sidebar-format.js";
+import { TUI_SIDEBAR_LAYOUT, TUI_SIDEBAR_MAX_WIDTH } from "./tui-sidebar-format.js";
 import type { QuotaToastConfig } from "./types.js";
 
 export interface SidebarQuotaSectionRow {
@@ -158,7 +158,18 @@ export function buildSidebarQuotaSections(params: {
     sections.push({
       key: `error:${error.label}:${error.message}`,
       headerLine: null,
-      rows: [{ lines: [`${error.label}: ${error.message}`], quiet: false }],
+      rows: [
+        {
+          lines: [
+            formatQuotaErrorLine({
+              label: error.label,
+              message: error.message,
+              maxWidth: TUI_SIDEBAR_MAX_WIDTH,
+            }),
+          ],
+          quiet: false,
+        },
+      ],
       error: true,
     });
   }

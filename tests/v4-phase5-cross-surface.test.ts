@@ -535,7 +535,15 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
       ...allWindows.sidebar.lines,
       ...(allWindows.sidebar.linesExpanded ?? []),
     ].join("\n");
-    assertFixtureContent(allWindowsSidebar);
+    // Sidebar error rows are bounded to the panel width: essentials and
+    // provider labels survive, deep error detail stays on /quota + toast.
+    expect(allWindowsSidebar).toContain("64%");
+    expect(allWindowsSidebar).toContain("$12.34");
+    expect(allWindowsSidebar).toContain("80%");
+    expect(allWindowsSidebar).toContain("Team Accounting: adapter.mappings[2…");
+    expect(allWindowsSidebar.split("\n").every((line) => line.length <= 36)).toBe(true);
+    assertPhase5FixtureOrder(allWindowsSidebar);
+    assertPhase5CanariesRedacted(allWindowsSidebar);
     assertTreeSessionTokenTotals(allWindowsSidebar);
     expect(allWindowsSidebar).toContain("tree-model");
     const sessionPromptCompact =
