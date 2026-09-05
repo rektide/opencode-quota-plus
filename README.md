@@ -1,23 +1,72 @@
 <p align="center">
-  <a href="https://github.com/slkiser/opencode-quota">
+  <a href="https://github.com/rektide/opencode-quota-plus">
     <picture>
       <source srcset="opencode-quota-logo-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="opencode-quota-logo-light.svg" media="(prefers-color-scheme: light)">
-      <img src="opencode-quota-logo-light.svg" alt="OpenCode Quota logo">
+      <img src="opencode-quota-logo-light.svg" alt="OpenCode Quota Plus logo">
     </picture>
   </a>
 </p>
-<p align="center">Quota, usage, and token visibility in OpenCode and your terminal.</p>
+<p align="center">Quota, usage, and token visibility in OpenCode and your terminal — pace-aware, v2-forward.</p>
 <p align="center">
-  <a href="https://www.npmjs.com/package/@slkiser/opencode-quota"><img alt="npm" src="https://img.shields.io/npm/v/%40slkiser%2Fopencode-quota?style=flat-square" /></a>
-  <a href="https://www.npmjs.com/package/@slkiser/opencode-quota"><img alt="npm downloads" src="https://img.shields.io/npm/dm/%40slkiser%2Fopencode-quota?style=flat-square" /></a>
-  <a href="https://github.com/slkiser/opencode-quota/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/slkiser/opencode-quota/ci.yml?style=flat-square&branch=main&label=CI" /></a>
+  <a href="https://github.com/rektide/opencode-quota-plus/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/rektide/opencode-quota-plus/ci.yml?style=flat-square&branch=plus&label=CI" /></a>
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" /></a>
+  <a href="https://github.com/slkiser/opencode-quota"><img alt="upstream" src="https://img.shields.io/badge/fork%20of-slkiser%2Fopencode--quota-blue?style=flat-square" /></a>
 </p>
 
-[![OpenCode Quota sidebar](https://shawnkiser.com/opencode-quota/opencode-quota-sidebar.webp)](https://github.com/slkiser/opencode-quota)
+**OpenCode Quota Plus** is a maintained fork of [slkiser/opencode-quota](https://github.com/slkiser/opencode-quota) that tracks upstream closely and layers a rendering-focused feature line on top. It is not a hard fork: every round is rebased over `main@origin`, so upstream fixes and providers flow through continuously.
 
----
+## The headline: pro-rata burn-rate awareness
+
+Every quota window knows how much of its *time* has elapsed. The fork renders that pace against your actual usage everywhere, so you can see at a glance whether you are burning quota faster or slower than the clock:
+
+```
+[OpenAI] (Pro)                 +10%      ← pace delta: usage minus elapsed time
+Weekly              5.7d 71% done        ← countdown + window time elapsed
+███████░░░░░░░░░░░░░░░░░░   29% used     ← quota actually used
+```
+
+Read it vertically: `71% done` (time) over `29% used` (quota), with the signed delta `+10%` hoisted onto the provider header. Under pace, the numbers match; over pace, you know by how much — before the wall hits. Providers with multiple windows stack their deltas on the header, top-most row right-most:
+
+```
+[OpenAI] (Pro)          -3% +8% -20%
+5h                     2.5h 50% done
+████████░░░░░░░░░░░░░░░░░   30% used
+Weekly                 5.7d 19% done
+███████░░░░░░░░░░░░░░░░░░░   27% used
+Monthly               26.0d 13% done
+███░░░░░░░░░░░░░░░░░░░░░░░   10% used
+```
+
+The indicator is default-on, works on every surface (sidebar, toasts, `/quota`, terminal `show`), and rounds to your configured percent precision. The same pacing math drives [conditional bar themes](#composable-bar-themes), so bars can change color or glyphs as you drift off pace.
+
+## What the fork adds
+
+All of this sits atop the inherited upstream base — providers, toasts, slash commands, token reports, and the updater carry over unchanged.
+
+| Adds | What you get |
+| ---- | ------------ |
+| **Pro-rata burn-rate indicator** | Signed usage-vs-pace delta on provider headers, window-elapsed `% done` on rows, all surfaces, default on |
+| **Fractional precision** | `percentDecimals` and `resetTimeDecimals` render fractional percents, deltas, and countdowns (`74.4%`, `+2.5%`, `5.7d`) |
+| **Composable bar themes** | 12 glyph themes (`classic`, `smooth`, `dots`, `rings`, …) as property stacks of characters and color, with conditional rules on pace delta, used percent, and hours remaining |
+| **Row visibility** | `hiddenEntries` and `quietEntries` drop or dim individual windows without disabling the provider |
+| **Sectioned sidebar rendering** | Structured per-provider sections with per-row color and quiet styling, plus a decoupled `footerLine` |
+| **Expandable error rows** | Credential failures collapse to dimmed canned summaries (`bad credentials`); clicking reveals the full message with provider JSON bodies compacted onto their own line |
+| **v2-first slot integration** | Typed local slot-tree claims across `sidebar.content`, `sidebar.footer`, and `prompt.footer.status`, with runtime provider-id resolution across v2 clients |
+| **Credential-DB discovery** | Prefers OpenCode v2's *next* credential database, falling back to legacy stores |
+
+Inherited from upstream and worth knowing about: session-token display with `sessionTokenScope: "current" | "tree"` (the tree scope folds child and subagent sessions into your totals), reset notifications, pricing from `models.dev`, and the guided updater.
+
+`resetTimeDecimals` originated here and has been upstreamed.
+
+## Where the fork lives
+
+- **Repository:** [rektide/opencode-quota-plus](https://github.com/rektide/opencode-quota-plus), default branch `plus`
+- **Upstream:** [slkiser/opencode-quota](https://github.com/slkiser/opencode-quota) — this fork rebases over `main@origin` every round; dated snapshot bookmarks preserve each integration state
+- **Tooling:** in-repo `upstream:check` / `upstream:sync` / `upstream:prepare-review` scripts keep the upstream diff reviewable, and `verify:v4-history` plus package-contents gates run before releases
+
+> [!NOTE]
+> The npm package name is still `@slkiser/opencode-quota` while the fork's own packaging decision lands. The commands below install that base package; the fork's additions currently ship from this repository's `plus` branch.
 
 ## Quick start
 
@@ -58,39 +107,17 @@ The updater prints the complete preview before its own config or cache changes. 
 
 ## Choose your setup
 
-<table>
-  <tr>
-    <td width="50%">
-      <img src="https://shawnkiser.com/opencode-quota/opencode-quota-sidebar.webp" alt="OpenCode Quota TUI sidebar panel" />
-    </td>
-    <td width="50%">
-      <img src="https://shawnkiser.com/opencode-quota/opencode-quota-toast.webp" alt="OpenCode Quota popup toast" />
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center"><strong>Sidebar panel</strong><br />A full quota view in OpenCode's session sidebar.</td>
-    <td width="50%" align="center"><strong>TUI toast</strong><br />Quota checks can appear automatically while you work.</td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="https://shawnkiser.com/opencode-quota/opencode-quota-statusbar.webp" alt="OpenCode Quota TUI status line" />
-    </td>
-    <td width="50%">
-      <img src="https://shawnkiser.com/opencode-quota/opencode-quota-tokens-command.webp" alt="OpenCode Quota token report" />
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center"><strong>Compact status line</strong><br />Short quota text on Home and below the message input.</td>
-    <td width="50%" align="center"><strong>Token reports</strong><br /><code>/tokens_today</code>, <code>/tokens_weekly</code>, session reports, and more.</td>
-  </tr>
-</table>
+- **Sidebar panel** — the full pace-aware view in OpenCode's session sidebar: provider headers with their pro-rata deltas, `% done`/`% used` rows, themed bars, and dimmed expandable error rows.
+- **TUI toast** — quota checks appear automatically while you work, with the same rendering at toast width.
+- **Compact status line** — short quota text on Home and below the message input.
+- **Token reports** — `/tokens_today`, `/tokens_weekly`, session reports, and more.
 
 More ways to use it:
 
 - Check quota anywhere: use `opencode-quota show` in a terminal or the same slash commands in the TUI, Web, and Desktop.
 - Automate quota checks with JSON output for scripts, status bars, and CI. Optional OpenTelemetry metrics support monitoring tools.
 - Customize the display with [`tuiPromptBar.enabled`](docs/readme/configuration.md#tui-settings), OpenCode Go's preferred collapsed-sidebar window, reset precision, and [`accountingDetail`](docs/readme/configuration.md#show-accounting-detail).
-- Choose current-session or descendant-tree token totals. Get reset popups for selected windows with [`resetNotifications`](docs/readme/configuration.md#notify-when-quota-becomes-available-again).
+- Choose current-session or descendant-tree token totals. Get reset popups for selected windows with [`resetNotifications`](docs/readme/configuration.md#notify-on-quota-becomes-available-again).
 - Troubleshoot authentication, quota sources, pricing, and maintainer notices.
 
 See [Configuration](docs/readme/configuration.md) for UI options and [Manual install](docs/readme/manual-install.md) for setup details.
@@ -252,7 +279,7 @@ External references:
 
 ## Contributors
 
-Thanks to everyone who has contributed to OpenCode Quota.
+The upstream project's contributors built the base this fork stands on — thank you.
 
 <a href="https://github.com/slkiser/opencode-quota/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=slkiser/opencode-quota" />
@@ -264,8 +291,4 @@ MIT
 
 ## Remarks
 
-OpenCode Quota is not built by the OpenCode team and is not affiliated with OpenCode or any provider listed above.
-
-## Star history
-
-![Star History Chart](https://shawnkiser.com/opencode-quota/star-history-2026813.svg)
+OpenCode Quota Plus is not built by the OpenCode team and is not affiliated with OpenCode, upstream OpenCode Quota, or any provider listed above.
