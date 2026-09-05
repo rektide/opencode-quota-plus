@@ -82,12 +82,13 @@ async function createCredentialDatabase(
 
 describe("OpenCode auth reader", () => {
   it.each([
-    ["OpenAI", "OpenAI (Pro)", "default", true, "[OpenAI] (Pro)*"],
-    ["OpenAI", "OpenAI (Pro)", "SEPD", true, "[OpenAI SEPD] (Pro)*"],
-    ["Copilot", "Copilot (business)", "sita", true, "[Copilot sita] (business)*"],
-    ["xAI", "xAI SuperGrok", "personal", true, "[xAI personal] (SuperGrok)*"],
-    ["OpenAI", "OpenAI (Pro)", "  ", true, "[OpenAI] (Pro)*"],
-    ["OpenAI", "OpenAI (Pro)", "openai", true, "[OpenAI] (Pro)*"],
+    ["OpenAI", "OpenAI (Pro)", "default", true, "[OpenAI] (Pro)"],
+    ["OpenAI", "OpenAI (Pro)", "SEPD", true, "[OpenAI SEPD] (Pro)"],
+    ["Copilot", "Copilot (business)", "sita", true, "[Copilot sita] (business)"],
+    ["xAI", "xAI SuperGrok", "personal", true, "[xAI personal] (SuperGrok)"],
+    ["OpenAI", "OpenAI (Pro)", "  ", true, "[OpenAI] (Pro)"],
+    ["OpenAI", "OpenAI (Pro)", "openai", true, "[OpenAI] (Pro)"],
+    ["OpenAI", "OpenAI (Pro)", "default", false, "[OpenAI] (Pro)"],
   ])("formats %s credential aliases as %s", (providerName, fallbackName, label, active, expected) => {
     expect(
       formatCredentialDisplayNames(providerName, [
@@ -102,9 +103,18 @@ describe("OpenCode auth reader", () => {
   it("numbers duplicate custom aliases without numbering default credentials", () => {
     expect(
       formatCredentialDisplayNames("OpenAI", [
-        { row: { id: "a", integrationId: "openai", label: "SEPD", active: true, value: {} }, fallbackName: "OpenAI (Pro)" },
-        { row: { id: "b", integrationId: "openai", label: "SEPD", active: false, value: {} }, fallbackName: "OpenAI (Pro)" },
-        { row: { id: "c", integrationId: "openai", label: "default", active: false, value: {} }, fallbackName: "OpenAI (Pro)" },
+        {
+          row: { id: "a", integrationId: "openai", label: "SEPD", active: true, value: {} },
+          fallbackName: "OpenAI (Pro)",
+        },
+        {
+          row: { id: "b", integrationId: "openai", label: "SEPD", active: false, value: {} },
+          fallbackName: "OpenAI (Pro)",
+        },
+        {
+          row: { id: "c", integrationId: "openai", label: "default", active: false, value: {} },
+          fallbackName: "OpenAI (Pro)",
+        },
       ]),
     ).toEqual(["[OpenAI SEPD] (Pro)*", "[OpenAI SEPD 2] (Pro)", "[OpenAI] (Pro)"]);
   });

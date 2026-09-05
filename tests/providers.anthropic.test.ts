@@ -47,7 +47,11 @@ describe("anthropic provider", () => {
       quotaSupported: true,
       quotaSource: "claude-auth-status-json",
       checkedCommands: [],
-      quota: { success: true, five_hour: { percentRemaining: 1 }, seven_day: { percentRemaining: 1 } },
+      quota: {
+        success: true,
+        five_hour: { percentRemaining: 1 },
+        seven_day: { percentRemaining: 1 },
+      },
     });
     (queryAnthropicQuotaWithOAuth as any).mockResolvedValueOnce({
       success: true,
@@ -59,9 +63,11 @@ describe("anthropic provider", () => {
 
     expect(queryAnthropicQuotaWithOAuth).toHaveBeenCalledWith("valid", undefined);
     expect(queryAnthropicQuota).not.toHaveBeenCalled();
+    // Only one usable credential after the expired-active fan-out, so the
+    // active marker (a multi-account tiebreaker) is omitted.
     expect(out.entries.map((entry) => [entry.group, entry.accounting.sourceId])).toEqual([
-      ["[Claude Work]*", "valid-inactive"],
-      ["[Claude Work]*", "valid-inactive"],
+      ["[Claude Work]", "valid-inactive"],
+      ["[Claude Work]", "valid-inactive"],
     ]);
   });
 

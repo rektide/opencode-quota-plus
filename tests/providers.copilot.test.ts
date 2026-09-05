@@ -170,7 +170,8 @@ describe("copilot provider", () => {
 
     const out = await copilotProvider.fetch({} as any);
 
-    expect(visibleEntries(out.entries, "copilot")[0]?.group).toBe("[Copilot alice] (enterprise)*");
+    // Lone credential: no active marker (it only distinguishes among several).
+    expect(visibleEntries(out.entries, "copilot")[0]?.group).toBe("[Copilot alice] (enterprise)");
     expect(out.statusDetails).toContainEqual({ key: "billing_scope", value: "user" });
   });
 

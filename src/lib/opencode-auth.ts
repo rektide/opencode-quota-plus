@@ -66,7 +66,9 @@ export function formatCredentialDisplayNames(
     const numberedAlias = duplicate === 1 ? aliasKey : `${aliasKey} ${duplicate}`;
     const base = `[${providerName}${numberedAlias ? ` ${numberedAlias}` : ""}]`;
     const category = fallbackCategory ? ` (${fallbackCategory})` : "";
-    const active = row.active || (credentials.length === 1 && !credentials[0]!.row.active);
+    // The marker distinguishes the active credential among several; a lone
+    // credential is implicitly the one in use, so it stays unmarked.
+    const active = credentials.length > 1 && row.active;
     return `${base}${category}${active ? "*" : ""}`;
   });
 }

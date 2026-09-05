@@ -151,9 +151,7 @@ describe("openai provider", () => {
       "active-id",
       "other-id",
     ]);
-    expect(
-      out.entries.map((entry) => [entry.group, entry.accounting.sourceId]),
-    ).toEqual([
+    expect(out.entries.map((entry) => [entry.group, entry.accounting.sourceId])).toEqual([
       ["[OpenAI Work] (Business)*", "active-id"],
       ["[OpenAI Work] (Business)*", "active-id"],
       ["[OpenAI Work] (Business)*", "active-id"],
@@ -166,9 +164,9 @@ describe("openai provider", () => {
   });
 
   it.each([
-    ["OpenAI", "[OpenAI] (Business)*"],
-    ["SEPD", "[OpenAI SEPD] (Business)*"],
-    ["default", "[OpenAI] (Business)*"],
+    ["OpenAI", "[OpenAI] (Business)"],
+    ["SEPD", "[OpenAI SEPD] (Business)"],
+    ["default", "[OpenAI] (Business)"],
   ])("renders DB alias %s literally on sidebar, CLI, and toast", async (label, expected) => {
     const { readCredentialRows } = await import("../src/lib/opencode-auth.js");
     const { queryOpenAIQuota, resolveOpenAIOAuth } = await import("../src/lib/openai.js");
