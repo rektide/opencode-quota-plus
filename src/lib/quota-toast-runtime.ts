@@ -10,6 +10,7 @@ import type { RuntimeContextRootHints } from "./config-file-utils.js";
 import { isCursorModelId, isCursorProviderId } from "./cursor-pricing.js";
 import { sanitizeDisplayText } from "./display-sanitize.js";
 import { formatQuotaRows } from "./format.js";
+import { formatQuotaErrorLine } from "./format-utils.js";
 import {
   BUNDLED_MAINTAINER_ANNOUNCEMENTS,
   formatMaintainerAnnouncementHomeCountLine,
@@ -956,7 +957,15 @@ export async function collectQuotaToastMessage(params: {
     (runtimeConfig.showOnBothFail && attemptedAny && errors.length > 0) ||
     hasExplicitProviderIssues
   ) {
-    const errorLines = errors.map((error) => `${error.label}: ${error.message}`).join("\n");
+    const errorLines = errors
+      .map((error) =>
+        formatQuotaErrorLine({
+          label: error.label,
+          message: error.message,
+          maxWidth: runtimeConfig.layout.maxWidth,
+        }),
+      )
+      .join("\n");
     const retryableFetchFailure = hasRetryableFetchFailure;
     const retryableFailure = retryableFetchFailure || retryableAvailabilityFailure;
     const retryReason: DeferredQuotaRefreshReason | undefined = retryableFetchFailure

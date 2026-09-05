@@ -109,9 +109,9 @@ describe("NanoGPT structured four-surface formatting", () => {
     });
 
     expect(outputs.command).toContain("invalid usd_balance decimal");
-    // Width-limited surfaces keep a bounded single-line error row.
-    expect(outputs.toast).toContain("[NanoGPT Balance] NanoGPT balance response returned an …");
-    expect(outputs.sidebar).toContain("[NanoGPT Balance] NanoGPT balance r…");
+    // Width-limited surfaces collapse to the canned summaries.
+    expect(outputs.toast).toContain("[NanoGPT Balance] error");
+    expect(outputs.sidebar).toContain("[NanoGPT Balance] error");
     for (const [output, width] of [
       [outputs.toast, 56],
       [outputs.sidebar, 36],

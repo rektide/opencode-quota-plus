@@ -540,22 +540,22 @@ describe("formatQuotaRows", () => {
       );
     });
 
-    it("bounds error rows to the surface width with an ellipsis", () => {
+    it("bounds error rows to the surface width", () => {
       const line = formatQuotaErrorLine({
         label: "[OpenCode Go]*",
         message: "OpenCode Go API error 503: service unavailable right now",
         maxWidth: 36,
       });
-      expect(line).toHaveLength(36);
-      expect(line).toMatch(/^\[OpenCode Go\] OpenCode Go API error…$/u);
+      expect(line).toBe("[OpenCode Go] error");
+      expect(line.length).toBeLessThanOrEqual(36);
     });
 
-    it("brackets labels like provider headers and keeps short rows intact", () => {
+    it("brackets labels like provider headers in canned rows", () => {
       expect(
         formatQuotaErrorLine({ label: "OpenRouter", message: "quota endpoint down", maxWidth: 36 }),
-      ).toBe("[OpenRouter] quota endpoint down");
+      ).toBe("[OpenRouter] error");
       expect(formatQuotaErrorLine({ label: "[OpenCode Go]*", message: "boom", maxWidth: 36 })).toBe(
-        "[OpenCode Go] boom",
+        "[OpenCode Go] error",
       );
     });
 
@@ -569,7 +569,7 @@ describe("formatQuotaRows", () => {
         "}",
       ].join("\n");
       const section = formatQuotaErrorSection({ label: "[OpenAI]", message, maxWidth: 36 });
-      expect(section.collapsed).toBe("[OpenAI] invalid credentials");
+      expect(section.collapsed).toBe("[OpenAI] bad credentials");
       // The expanded view keeps the real provider text and compact JSON.
       expect(section.detail[0]).toBe("[OpenAI] OpenAI API error 401:");
       expect(section.detail[1]).toBe('{"error":{"message":"Encountered inv');
@@ -583,14 +583,24 @@ describe("formatQuotaRows", () => {
           message: "refresh token rejected: invalid token",
           maxWidth: 36,
         }),
-      ).toBe("[Z.ai] invalid credentials");
+      ).toBe("[Z.ai] bad credentials");
       expect(
         formatQuotaErrorLine({
           label: "DeepSeek",
           message: "insufficient balance 402: top up",
           maxWidth: 36,
         }),
-      ).toBe("[DeepSeek] insufficient balance 402…");
+      ).toBe("[DeepSeek] error");
+    });
+
+    it("treats messages naming both an error and a credential as bad credentials", () => {
+      expect(
+        formatQuotaErrorLine({
+          label: "OpenCode Go",
+          message: "OpenCode Go API error: credential store rejected the request",
+          maxWidth: 36,
+        }),
+      ).toBe("[OpenCode Go] bad credentials");
     });
 
     it("expands non-credential errors to untruncated detail with compact JSON on its own line", () => {
@@ -599,7 +609,7 @@ describe("formatQuotaRows", () => {
         message: "OpenCode Go API error 503: upstream unavailable",
         maxWidth: 36,
       });
-      expect(section.collapsed).toBe("[OpenCode Go] OpenCode Go API error…");
+      expect(section.collapsed).toBe("[OpenCode Go] error");
       expect(section.detail).toEqual([
         "[OpenCode Go] OpenCode Go API error",
         "  503: upstream unavailable",

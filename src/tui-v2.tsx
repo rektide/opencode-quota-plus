@@ -408,7 +408,14 @@ function SidebarQuotaView(props: {
   const [quota, setQuota] = createSignal<
     { sections: SidebarQuotaSection[]; activeProviderCount: number } | undefined
   >(undefined);
-  const quietForeground = () => props.context.theme?.current?.textMuted ?? terminalForeground;
+  // Quiet rows must never degrade to the bright default: resolve the host
+  // muted token, and fall back to a neutral gray when the host theme is
+  // unavailable (e.g. local host builds without theme context).
+  const mutedFallback = RGBA.fromValues(128, 128, 128);
+  const quietForeground = () =>
+    resolveThemeColor("quiet", props.context.theme?.current, (t) =>
+      RGBA.fromValues(t[0], t[1], t[2]),
+    ) ?? mutedFallback;
   // Color layer resolution: quiet flags dim via the host's muted token; theme
   // colors resolve host-token-first, then CSS names / hex literals.
   const lineForeground = (line: { quiet: boolean; color?: string }): RGBA =>

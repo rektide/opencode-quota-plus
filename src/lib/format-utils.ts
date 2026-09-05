@@ -576,14 +576,28 @@ const INVALID_CREDENTIAL_RE =
   /\b(?:invalid|incorrect|expired|revoked|missing|unauthorized|bad)\b[^\n]{0,48}\b(?:token|key|credential|auth)s?\b|\b401\b|\bunauthorized\b/iu;
 
 /**
+ * Canned collapsed summary for one error row. "bad credentials" when the
+ * message names both an error and a credential, or matches the
+ * invalid-token/key detector; every other error falls through to "error".
+ * The real provider text stays in the expandable detail lines.
+ */
+function cannedQuotaErrorSummary(conciseMessage: string): string {
+  const namesErrorAndCredential =
+    /\berror\b/iu.test(conciseMessage) && /\bcredential/iu.test(conciseMessage);
+  return namesErrorAndCredential || INVALID_CREDENTIAL_RE.test(conciseMessage)
+    ? "bad credentials"
+    : "error";
+}
+
+/**
  * Render an error row plus its expandable detail. The collapsed row shows
- * the bracketed label and a concise single-line message; credential
- * failures collapse to the canned "invalid credentials" summary, keeping
- * the real provider text for the expanded view. A trailing JSON error
- * body reduces to its message text in the summary, while the detail lines
- * carry the untruncated message and the JSON's compact re-serialization
- * on its own line — whitespace is not left inside the JSON; long lines
- * wrap to the surface width.
+ * the bracketed label and a canned summary ("bad credentials" for
+ * credential failures, "error" otherwise), keeping the real provider
+ * text for the expanded view. A trailing JSON error body reduces to its
+ * message text for classification, while the detail lines carry the
+ * untruncated message and the JSON's compact re-serialization on its own
+ * line — whitespace is not left inside the JSON; long lines wrap to the
+ * surface width.
  */
 export function formatQuotaErrorSection(params: {
   label?: string;
@@ -593,15 +607,8 @@ export function formatQuotaErrorSection(params: {
   const label = normalizeQuotaErrorLabel(sanitizeSingleLineDisplayText(params.label ?? ""));
   const prefix = label ? `${label} ` : "";
   const collapsedMessage = concisifyQuotaErrorMessage(params.message);
-  const canned = INVALID_CREDENTIAL_RE.test(collapsedMessage) ? "invalid credentials" : null;
-  const budget = Math.max(1, params.maxWidth - prefix.length);
-  const collapsedBody =
-    canned ??
-    (collapsedMessage.length > budget
-      ? budget <= 1
-        ? "…"
-        : `${collapsedMessage.slice(0, budget - 1)}…`
-      : collapsedMessage);
+  const canned = cannedQuotaErrorSummary(collapsedMessage);
+  const collapsedBody = canned;
 
   const detail: string[] = [];
   const raw = sanitizeSingleLineDisplayText(params.message);

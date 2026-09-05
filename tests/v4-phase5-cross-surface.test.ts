@@ -230,10 +230,14 @@ function assertFixtureContent(output: string): void {
   expect(output).toContain("64%");
   expect(output).toContain("$12.34");
   expect(output).toContain("80%");
-  expect(output).toContain("adapter.mappings[2]");
-  expect(output).toContain("HTTP 503");
   assertPhase5FixtureOrder(output);
   assertPhase5CanariesRedacted(output);
+}
+
+/** Toasts and the sidebar collapse error rows to canned summaries. */
+function assertFixtureCannedErrors(output: string): void {
+  expect(output).toContain("[Failing Accounting] error");
+  expect(output).not.toContain("phase5-private-http-body-canary");
 }
 
 describe("v4 Phase 5 cross-surface release evidence", () => {
@@ -390,6 +394,9 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
     assertFixtureContent(serverOutput);
     assertTreeSessionTokenTotals(serverOutput);
     expect(serverOutput).toContain("tree-model");
+    // The verbose command keeps the full failing-provider text.
+    expect(serverOutput).toContain("HTTP 503");
+    expect(serverOutput).toContain("adapter.mappings[2]");
 
     await hooks.event?.({
       event: {
@@ -400,6 +407,7 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
     expect(client.tui.showToast).toHaveBeenCalledTimes(1);
     const toastOutput = getToastMessage(client);
     assertFixtureContent(toastOutput);
+    assertFixtureCannedErrors(toastOutput);
     assertTreeSessionTokenTotals(toastOutput);
     expect(toastOutput).toContain("tree-model");
 
@@ -413,6 +421,7 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
     expect(client.tui.showToast).toHaveBeenCalledTimes(2);
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(callsAfterFirstToast);
     assertFixtureContent(getToastMessage(client, 1));
+    assertFixtureCannedErrors(getToastMessage(client, 1));
 
     const statusMetadata = vi.fn();
     expect(hooks.tool?.quota_status).toBeDefined();
@@ -540,7 +549,7 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
     expect(allWindowsSidebar).toContain("64%");
     expect(allWindowsSidebar).toContain("$12.34");
     expect(allWindowsSidebar).toContain("80%");
-    expect(allWindowsSidebar).toContain("[Team Accounting] adapter.mappings[…");
+    expect(allWindowsSidebar).toContain("[Team Accounting] error");
     expect(allWindowsSidebar.split("\n").every((line) => line.length <= 36)).toBe(true);
     assertPhase5FixtureOrder(allWindowsSidebar);
     assertPhase5CanariesRedacted(allWindowsSidebar);
@@ -573,7 +582,7 @@ describe("v4 Phase 5 cross-surface release evidence", () => {
     const singleWindowSidebar = singleWindow.sidebar.lines.join("\n");
     expect(singleWindowSidebar).toContain("64%");
     expect(singleWindowSidebar).toContain("80%");
-    expect(singleWindowSidebar).toContain("HTTP 503");
+    expect(singleWindowSidebar).toContain("[Failing Accounting] error");
     assertPhase5FixtureOrder(singleWindowSidebar);
     assertPhase5CanariesRedacted(singleWindowSidebar);
     assertTreeSessionTokenTotals(singleWindowSidebar);

@@ -86,7 +86,7 @@ describe("buildSidebarQuotaPanelLines", () => {
     expect(rendered).not.toContain("\u0001");
     expect(rendered).not.toContain("\u0002");
     expect(rendered).not.toContain("\u0003");
-    expect(rendered).toContain("[Err] Bad");
+    expect(rendered).toContain("[Err] error");
     expect(rendered).toContain(SESSION_TOKEN_SECTION_HEADING);
     expect(rendered).toContain("12 (5) in  34 out");
     expect(rendered).toContain("gpt-5");

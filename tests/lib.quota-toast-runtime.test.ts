@@ -259,9 +259,7 @@ describe("quota toast runtime state machine", () => {
       trigger: "session.idle",
     });
     expect(skippedProvider.fetch).not.toHaveBeenCalled();
-    expect(getToastMessage(skippedClient)).toContain(
-      "OpenAI: Skipped (current model: claude-3.7-sonnet)",
-    );
+    expect(getToastMessage(skippedClient)).toContain("[OpenAI] error");
 
     mocks.loadConfig.mockResolvedValueOnce(
       makeToastConfig({ enabledProviders: ["copilot"], percentDisplayMode: "used" }),
@@ -297,7 +295,7 @@ describe("quota toast runtime state machine", () => {
 
     await runtime.handleTrigger({ sessionID: "session-backoff", trigger: "session.idle" });
     expect(provider.fetch).toHaveBeenCalledTimes(1);
-    expect(getToastMessage(client)).toContain("OpenAI: Failed to read quota data");
+    expect(getToastMessage(client)).toContain("[OpenAI] error");
 
     for (const delay of [3_000, 15_000, 60_000, 300_000]) {
       await vi.advanceTimersByTimeAsync(delay - 1);
@@ -366,7 +364,7 @@ describe("quota toast runtime state machine", () => {
     await vi.advanceTimersByTimeAsync(3_000);
     expect(provider.fetch).toHaveBeenCalledOnce();
     expect(client.tui.showToast).toHaveBeenCalledOnce();
-    expect(getToastMessage(client)).toContain("Unavailable (not detected)");
+    expect(getToastMessage(client)).toContain("[OpenAI] error");
 
     await vi.advanceTimersByTimeAsync(15_000);
     expect(provider.fetch).toHaveBeenCalledTimes(2);
@@ -660,7 +658,7 @@ describe("quota toast runtime state machine", () => {
     await errorRuntime.handleTrigger({ sessionID: "session-errors", trigger: "session.idle" });
     await errorRuntime.handleTrigger({ sessionID: "session-errors", trigger: "session.idle" });
     expect(errorProvider.fetch).toHaveBeenCalledTimes(2);
-    expect(getToastMessage(errorClient, 1)).toContain("Billing unavailable");
+    expect(getToastMessage(errorClient, 1)).toContain("[DeepSeek] error");
   });
 
   it("keys rendered throttling by session render context", async () => {

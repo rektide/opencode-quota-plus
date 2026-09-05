@@ -112,8 +112,9 @@ describe("Cursor structured four-surface formatting", () => {
       expect(output).not.toContain("%");
       expect(output).not.toContain("USD 20.00");
     }
-    for (const output of [outputs.command, outputs.toast, outputs.sidebar]) {
-      expect(output).toContain("Unknown Cursor model ids");
+    expect(outputs.command).toContain("Unknown Cursor model ids");
+    for (const output of [outputs.toast, outputs.sidebar]) {
+      expect(output).toContain("[Cursor] error");
     }
     expect(outputs.compact).toContain("1 issue");
   });

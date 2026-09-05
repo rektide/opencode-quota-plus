@@ -85,7 +85,7 @@ describe("buildSidebarQuotaSections", () => {
     expect(errorSection?.headerLine).toBeNull();
     // Credential-shaped failures collapse to the canned summary; the real
     // text stays available as expandable detail.
-    expect(errorSection?.rows[0]!.lines).toEqual(["[OpenRouter] invalid credentials"]);
+    expect(errorSection?.rows[0]!.lines).toEqual(["[OpenRouter] bad credentials"]);
     expect(errorSection?.rows[0]!.quiet).toBe(true);
     expect(errorSection?.rows[0]!.detailLines).toEqual([
       "[OpenRouter] Invalid",
@@ -120,7 +120,7 @@ describe("buildSidebarQuotaSections", () => {
       "[DeepSeek]",
       ...sections[1]!.rows.flatMap((row) => row.lines),
       "",
-      "[OpenRouter] invalid credentials",
+      "[OpenRouter] bad credentials",
     ]);
   });
 
@@ -141,8 +141,8 @@ describe("buildSidebarQuotaSections", () => {
       "[Z.ai]",
       ...sections[0]!.rows.flatMap((row) => row.lines),
       "",
-      "[OpenAI] invalid credentials",
-      "[OpenCode Go] gateway timeout 504",
+      "[OpenAI] bad credentials",
+      "[OpenCode Go] error",
     ]);
   });
 
