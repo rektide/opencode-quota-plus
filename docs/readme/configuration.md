@@ -559,11 +559,13 @@ Xiaomi MiMo has no `quota-toast.json` credential or endpoint setting. Use `MIMO_
 
 **Removed Zen setting:** `opencodeZenDisplay` is no longer supported. Runtime loading stays diagnostic-only: if a file-backed, SDK, or legacy config source contains the key, `/quota_status` reports a nonfatal migration issue and does not translate it. The explicit `update` command migrates recognized file-backed `"default"` to root `accountingDetail: "summary"` and `"detailed"` to `"detailed"`. If a valid `accountingDetail` already exists, it stays authoritative and the ignored old key is removed. Unknown or invalid values, invalid replacements, duplicate keys, ambiguous structures, and SDK-only sources remain unchanged for manual review. See [Updating safely](updating.md#what-can-change-automatically).
 
-### Export settings
+### Export settings (legacy, off by default)
+
+Prefer `opencode-quota show --json` for reading values; see [External integration](external-integration.md#preferred-run-the-command). The export file remains for existing integrations.
 
 | Option           | Default | Meaning                                                                                                                     |
 | ---------------- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `export.enabled` | `false` | Write a JSON export file after each TUI background refresh.                                                                 |
+| `export.enabled` | `false` | Write a JSON export file after each TUI background refresh. Not recommended for new setups.                                  |
 | `export.path`    | `""`    | Export file path. Empty string uses the XDG default: `$XDG_CACHE_HOME/opencode/quota-export.json`. Supports `~/` expansion. |
 
 ### Telemetry settings

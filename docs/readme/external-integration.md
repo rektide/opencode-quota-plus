@@ -4,12 +4,16 @@
 
 OpenCode Quota can share its cached quota data with scripts, status bars, CI, and monitoring tools. These options do not make extra provider requests.
 
-## Choose one option
+## Preferred: run the command
+
+`opencode-quota show --json` is the supported way to read quota values from scripts, status bars, CI, and monitoring tools. It prints the same data live from cache and needs no extra configuration. Prefer it for new integrations.
+
+## Other options (opt-in, not recommended for new use)
 
 | What you need | Use |
 | --- | --- |
 | Run a command and get JSON | `opencode-quota show --json` |
-| Read the same JSON often | Export file |
+| A polling JSON file | Export file (legacy; prefer `show --json`) |
 | Send numbers to a monitoring system | OpenTelemetry metrics |
 
 ## 1. Get JSON from a command
@@ -53,9 +57,29 @@ opencode-quota show --json --provider copilot \
   | jq -r '(.providers.copilot.entries? // []) | map(select(.renderType == "percent" and .percentRemaining != null)) | first | .percentRemaining // empty'
 ```
 
-## 2. Read an export file
+### tmux example
 
-Use this for a status bar or another tool that checks quota often.
+```bash
+set -g status-interval 30
+set -g status-right '#(opencode-quota show --json 2>/dev/null | jq -r "[.providers|to_entries[]|select(.value.status==\"ok\")|first(.value.entries[]?|select(.renderType==\"percent\" and .percentRemaining!=null))|(.percentRemaining|floor|tostring)+\"%\"]|join(\" | \")")'
+```
+
+### Starship example
+
+Add this to `starship.toml`:
+
+```toml
+[custom.quota]
+command = "opencode-quota show --json 2>/dev/null | jq -r '[.providers|to_entries[]|select(.value.status==\"ok\")|first(.value.entries[]?|select(.renderType==\"percent\" and .percentRemaining!=null))|(.percentRemaining|floor|tostring)+\"%\"]|join(\" \")'"
+when = "true"
+interval = 60
+```
+
+## 2. Read an export file (legacy, opt-in)
+
+Prefer `opencode-quota show --json` (above). It reads the same cached values without enabling anything.
+
+If an existing integration already polls the file, you can still enable it:
 
 Add this to `opencode-quota/quota-toast.json`:
 
@@ -76,26 +100,6 @@ The file is normally written here:
 If you set `XDG_CACHE_HOME`, the file is written to `$XDG_CACHE_HOME/opencode/quota-export.json` instead.
 
 The TUI refreshes the file about once a minute. A write error is logged, but it does not break the TUI.
-
-### tmux example
-
-Add this to your tmux config:
-
-```bash
-set -g status-interval 30
-set -g status-right '#(jq -r "[.providers|to_entries[]|select(.value.status==\"ok\")|first(.value.entries[]?|select(.renderType==\"percent\" and .percentRemaining!=null))|(.percentRemaining|floor|tostring)+\"%\"]|join(\" | \")" ~/.cache/opencode/quota-export.json 2>/dev/null)'
-```
-
-### Starship example
-
-Add this to `starship.toml`:
-
-```toml
-[custom.quota]
-command = "opencode-quota show --json 2>/dev/null | jq -r '[.providers|to_entries[]|select(.value.status==\"ok\")|first(.value.entries[]?|select(.renderType==\"percent\" and .percentRemaining!=null))|(.percentRemaining|floor|tostring)+\"%\"]|join(\" \")'"
-when = "true"
-interval = 60
-```
 
 ## 3. Send OpenTelemetry metrics
 
