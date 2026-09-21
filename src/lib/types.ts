@@ -85,6 +85,11 @@ export interface QuotaTelemetryConfig {
   enabled: boolean;
 }
 
+export interface RetryPacingConfig {
+  /** Whether provider quota resets may extend OpenCode retry delays. Default: true. */
+  enabled: boolean;
+}
+
 export interface MaintainerAnnouncementsConfig {
   enabled: boolean;
   home: boolean;
@@ -245,6 +250,9 @@ export interface QuotaToastConfig {
   /** Opt-in quota metrics through the host's global OpenTelemetry MeterProvider. */
   telemetry: QuotaTelemetryConfig;
 
+  /** Pace provider retries until a known exhausted quota window resets. */
+  retryPacing: RetryPacingConfig;
+
   /** Responsive toast layout breakpoints (not used by the fixed-width TUI sidebar). */
   layout: {
     /** Default max width target for toast formatting */
@@ -326,6 +334,9 @@ export const DEFAULT_CONFIG: QuotaToastConfig = {
   },
   telemetry: {
     enabled: false,
+  },
+  retryPacing: {
+    enabled: true,
   },
   layout: {
     maxWidth: 50,

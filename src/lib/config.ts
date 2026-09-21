@@ -95,6 +95,7 @@ export const QUOTA_TOAST_SETTING_SOURCE_KEYS = [
   "export.enabled",
   "export.path",
   "telemetry.enabled",
+  "retryPacing.enabled",
 ] as const;
 
 export type QuotaToastSettingSourceKey = (typeof QUOTA_TOAST_SETTING_SOURCE_KEYS)[number];
@@ -163,6 +164,7 @@ type MaintainerAnnouncementsPatch = Partial<QuotaToastConfig["maintainerAnnounce
 type LayoutPatch = Partial<QuotaToastConfig["layout"]>;
 type ExportConfigPatch = Partial<QuotaToastConfig["export"]>;
 type TelemetryConfigPatch = Partial<QuotaToastConfig["telemetry"]>;
+type RetryPacingConfigPatch = Partial<QuotaToastConfig["retryPacing"]>;
 
 type ValidatedQuotaToastPatch = {
   enabled?: boolean;
@@ -206,6 +208,7 @@ type ValidatedQuotaToastPatch = {
   layout?: LayoutPatch;
   export?: ExportConfigPatch;
   telemetry?: TelemetryConfigPatch;
+  retryPacing?: RetryPacingConfigPatch;
 };
 
 export type ConfigLayerScope = "global" | "workspace";
@@ -372,6 +375,7 @@ function cloneConfig(config: QuotaToastConfig): QuotaToastConfig {
     layout: { ...config.layout },
     export: { ...config.export },
     telemetry: { ...config.telemetry },
+    retryPacing: { ...config.retryPacing },
   };
 }
 
@@ -647,6 +651,20 @@ function extractTelemetryConfigPatch(value: unknown): TelemetryConfigPatch | und
   }
 
   const patch: TelemetryConfigPatch = {};
+
+  if (hasOwnKey(value, "enabled") && typeof value.enabled === "boolean") {
+    patch.enabled = value.enabled;
+  }
+
+  return Object.keys(patch).length > 0 ? patch : undefined;
+}
+
+function extractRetryPacingConfigPatch(value: unknown): RetryPacingConfigPatch | undefined {
+  if (!isPlainObject(value)) {
+    return undefined;
+  }
+
+  const patch: RetryPacingConfigPatch = {};
 
   if (hasOwnKey(value, "enabled") && typeof value.enabled === "boolean") {
     patch.enabled = value.enabled;
@@ -988,6 +1006,13 @@ function extractValidatedQuotaToastPatch(
     }
   }
 
+  if (hasOwnKey(quotaToastConfig, "retryPacing")) {
+    const retryPacing = extractRetryPacingConfigPatch(quotaToastConfig.retryPacing);
+    if (retryPacing) {
+      patch.retryPacing = retryPacing;
+    }
+  }
+
   return patch;
 }
 
@@ -1295,6 +1320,12 @@ function applyValidatedQuotaToastPatch(
   if (patch.telemetry && hasOwnKey(patch.telemetry, "enabled")) {
     config.telemetry.enabled = patch.telemetry.enabled!;
     applySettingSource(settingSources, "telemetry.enabled", sourcePath);
+  }
+
+
+  if (patch.retryPacing && hasOwnKey(patch.retryPacing, "enabled")) {
+    config.retryPacing.enabled = patch.retryPacing.enabled!;
+    applySettingSource(settingSources, "retryPacing.enabled", sourcePath);
   }
 }
 

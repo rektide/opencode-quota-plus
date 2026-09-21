@@ -63,6 +63,15 @@ describe("loadConfig", () => {
     return { config, meta };
   }
 
+  it("enables quota-aware retry pacing by default and accepts an explicit opt-out", async () => {
+    const defaults = await loadSdkConfig({});
+    expect(defaults.config.retryPacing.enabled).toBe(true);
+
+    const disabled = await loadSdkConfig({ retryPacing: { enabled: false } });
+    expect(disabled.config.retryPacing.enabled).toBe(false);
+    expect(disabled.meta.settingSources["retryPacing.enabled"]).toBe("client.config.get");
+  });
+
   it("defaults and validates native TUI command display with provenance", async () => {
     const defaults = await loadSdkConfig({});
     expect(defaults.config.tuiCommandDisplay).toBe("inline");
