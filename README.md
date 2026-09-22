@@ -118,7 +118,7 @@ More ways to use it:
 - Automate quota checks with JSON output for scripts, status bars, and CI. Optional OpenTelemetry metrics support monitoring tools.
 - Customize the display with [`tuiPromptBar.enabled`](docs/readme/configuration.md#tui-settings), OpenCode Go's preferred collapsed-sidebar window, reset precision, and [`accountingDetail`](docs/readme/configuration.md#show-accounting-detail).
 - Choose current-session or descendant-tree token totals. Get reset popups for selected windows with [`resetNotifications`](docs/readme/configuration.md#notify-on-quota-becomes-available-again).
-- Pace quota-limited model retries until the exhausted provider window resets. This is on by default; parented subagents fail promptly and are offered back to their parent after reset instead of silently sleeping.
+- Revive quota-stalled work after the exhausted provider window resets. This is on by default; roots are prompted to continue, quota-failed children are offered back to their parent, and independent forks retain direct paced retries.
 - Troubleshoot authentication, quota sources, pricing, and maintainer notices.
 
 See [Configuration](docs/readme/configuration.md) for UI options and [Manual install](docs/readme/manual-install.md) for setup details.

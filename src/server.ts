@@ -1,10 +1,8 @@
-import {
-  createParentQuotaFailureNotifier,
-  type ParentedQuotaFailure,
-} from "./lib/parent-quota-failures.js";
+import { createQuotaStallNotifier, type QuotaStall } from "./lib/parent-quota-failures.js";
 import { resolveQuotaRuntimeContext } from "./lib/quota-runtime-context.js";
 import {
   isQuotaRetryError,
+  RETRY_RESET_MARGIN_MS,
   type RetryPacingError,
   resolveCachedRetryPacingPlan,
 } from "./lib/retry-pacing.js";
@@ -45,16 +43,24 @@ interface ServerPluginContext {
   };
 }
 
-function parentQuotaResetMessage(failures: readonly ParentedQuotaFailure[]): string {
-  const children = failures.map((failure) => `- ${failure.childSessionID}`).join("\n");
-  const noun = failures.length === 1 ? "child session was" : "child sessions were";
-  return [
-    `<subagent-quota-reset state="available" count="${failures.length}">`,
-    `${failures.length} ${noun} stopped after provider quota was exhausted.`,
-    "The relevant quota reset has now passed. Resume any of these sessions if their work is still useful:",
-    children,
-    "</subagent-quota-reset>",
-  ].join("\n");
+function quotaResetMessage(stalls: readonly QuotaStall[]): string {
+  const self = stalls.some((stall) => stall.relation === "self");
+  const children = stalls.filter((stall) => stall.relation === "child");
+  const lines = [
+    `<quota-reset state="available" child-count="${children.length}">`,
+    self
+      ? "Provider quota is available again after this session was interrupted. Continue its work if it is still useful."
+      : "Provider quota is available again.",
+  ];
+  if (children.length > 0) {
+    const noun = children.length === 1 ? "child session was" : "child sessions were";
+    lines.push(
+      `${children.length} ${noun} also stopped after quota was exhausted. Resume any still-useful child work:`,
+      ...children.map((stall) => `- ${stall.stalledSessionID}`),
+    );
+  }
+  lines.push("</quota-reset>");
+  return lines.join("\n");
 }
 
 const serverPlugin = {
@@ -65,24 +71,26 @@ const serverPlugin = {
       roots: { fallbackDirectory: context.location.directory },
     });
 
-    const parentFailures = createParentQuotaFailureNotifier({
-      notify: async (parentSessionID, failures) => {
+    const quotaStalls = createQuotaStallNotifier({
+      notify: async (notifySessionID, stalls) => {
+        const children = stalls.filter((stall) => stall.relation === "child");
         await context.session.synthetic({
-          sessionID: parentSessionID,
+          sessionID: notifySessionID,
           resume: true,
-          description: "Quota-blocked subagents can be resumed",
-          text: parentQuotaResetMessage(failures),
+          description: "Quota is available; interrupted work can resume",
+          text: quotaResetMessage(stalls),
           metadata: {
             source: "opencode-quota",
             state: "quota-reset",
-            childIDs: failures.map((failure) => failure.childSessionID),
-            count: failures.length,
+            sessionWasStalled: stalls.some((stall) => stall.relation === "self"),
+            childIDs: children.map((stall) => stall.stalledSessionID),
+            childCount: children.length,
           },
         });
       },
-      onError: (error, parentSessionID) => {
-        console.warn("[opencode-quota] failed to notify parent about resumable children", {
-          parentSessionID,
+      onError: (error, notifySessionID) => {
+        console.warn("[opencode-quota] failed to revive quota-stalled session", {
+          notifySessionID,
           error: error instanceof Error ? error.message : String(error),
         });
       },
@@ -112,16 +120,35 @@ const serverPlugin = {
         // independent sessions (`fork`, no parentID) and retain normal pacing.
         if (session.parentID && !session.fork) {
           event.decision = { retry: false };
-          parentFailures.record({
-            parentSessionID: session.parentID,
-            childSessionID: event.sessionID,
+          quotaStalls.record({
+            notifySessionID: session.parentID,
+            stalledSessionID: event.sessionID,
+            relation: "child",
             providerID: event.model.providerID,
             modelID: event.model.id,
-            availableAtMs: Date.now() + plan.delayMs,
+            availableAtMs: plan.resetAtMs + RETRY_RESET_MARGIN_MS,
           });
           console.info("[opencode-quota] deferred quota-blocked child for parent review", {
             parentSessionID: session.parentID,
             childSessionID: event.sessionID,
+            providerID: event.model.providerID,
+            resetAt: new Date(plan.resetAtMs).toISOString(),
+          });
+          return;
+        }
+
+        if (!session.fork) {
+          event.decision = { retry: false };
+          quotaStalls.record({
+            notifySessionID: event.sessionID,
+            stalledSessionID: event.sessionID,
+            relation: "self",
+            providerID: event.model.providerID,
+            modelID: event.model.id,
+            availableAtMs: plan.resetAtMs + RETRY_RESET_MARGIN_MS,
+          });
+          console.info("[opencode-quota] scheduled quota-stalled session revival", {
+            sessionID: event.sessionID,
             providerID: event.model.providerID,
             resetAt: new Date(plan.resetAtMs).toISOString(),
           });
@@ -143,7 +170,7 @@ const serverPlugin = {
     });
 
     return async () => {
-      parentFailures.dispose();
+      quotaStalls.dispose();
       await registration.dispose();
     };
   },

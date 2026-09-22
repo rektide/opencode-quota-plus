@@ -51,30 +51,43 @@ describe("V2 server retry pacing", () => {
     return { retryHook, cleanup, dispose, get, synthetic };
   }
 
-  it("extends a quota retry to the cached reset without shortening core policy", async () => {
-    mocks.resolvePlan.mockResolvedValue({
-      delayMs: 6 * 60 * 60_000,
-      resetAtMs: Date.now() + 6 * 60 * 60_000,
-      quotaProviderIds: ["zai"],
-    });
-    const { retryHook } = await setup();
-    const event = {
-      sessionID: "session",
-      model: { providerID: "zai", id: "glm-5" },
-      error: { type: "provider.quota", status: 429 },
-      decision: { retry: true, delay: 15_000 },
-    };
+  it("fails a root session promptly and revives it after quota resets", async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.resolvePlan.mockResolvedValue({
+        delayMs: 11_000,
+        resetAtMs: Date.now() + 1_000,
+        quotaProviderIds: ["zai"],
+      });
+      const { retryHook, synthetic } = await setup();
+      const event = {
+        sessionID: "root",
+        model: { providerID: "zai", id: "glm-5" },
+        error: { type: "provider.quota", status: 429 },
+        decision: { retry: true, delay: 15_000 },
+      };
 
-    await retryHook(event);
+      await retryHook(event);
+      expect(event.decision).toEqual({ retry: false });
+      expect(mocks.resolvePlan).toHaveBeenCalledWith(
+        expect.objectContaining({ providerID: "zai", modelID: "glm-5" }),
+      );
 
-    expect(event.decision).toEqual({ retry: true, delay: 6 * 60 * 60_000 });
-    expect(mocks.resolvePlan).toHaveBeenCalledWith(
-      expect.objectContaining({ providerID: "zai", modelID: "glm-5" }),
-    );
-    expect(console.info).toHaveBeenCalledWith(
-      "[opencode-quota] scheduled quota-aware retry",
-      expect.objectContaining({ providerID: "zai", delayMs: 6 * 60 * 60_000 }),
-    );
+      await vi.advanceTimersByTimeAsync(11_000);
+      expect(synthetic).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionID: "root",
+          resume: true,
+          text: expect.stringContaining("Continue its work"),
+          metadata: expect.objectContaining({
+            sessionWasStalled: true,
+            childIDs: [],
+          }),
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("leaves unrelated failures and planner failures on OpenCode's policy", async () => {
@@ -110,7 +123,7 @@ describe("V2 server retry pacing", () => {
     vi.useFakeTimers();
     try {
       mocks.resolvePlan.mockResolvedValue({
-        delayMs: 1_000,
+        delayMs: 11_000,
         resetAtMs: Date.now() + 1_000,
         quotaProviderIds: ["zai"],
       });
@@ -127,12 +140,12 @@ describe("V2 server retry pacing", () => {
       expect(event.decision).toEqual({ retry: false });
       expect(synthetic).not.toHaveBeenCalled();
 
-      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(11_000);
       expect(synthetic).toHaveBeenCalledWith(
         expect.objectContaining({
           sessionID: "parent",
           text: expect.stringContaining("child"),
-          metadata: expect.objectContaining({ childIDs: ["child"], count: 1 }),
+          metadata: expect.objectContaining({ childIDs: ["child"], childCount: 1 }),
         }),
       );
     } finally {
@@ -161,5 +174,46 @@ describe("V2 server retry pacing", () => {
 
     await retryHook(event);
     expect(event.decision).toEqual({ retry: true, delay: 60_000 });
+  });
+
+  it("adds quota-failed children to the stalled parent's revival message", async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.resolvePlan.mockResolvedValue({
+        delayMs: 11_000,
+        resetAtMs: Date.now() + 1_000,
+        quotaProviderIds: ["zai"],
+      });
+      const { retryHook, get, synthetic } = await setup();
+      get.mockImplementation(async ({ sessionID }) =>
+        sessionID === "child" ? { id: "child", parentID: "parent" } : { id: sessionID },
+      );
+      const failure = (sessionID: string) => ({
+        sessionID,
+        model: { providerID: "zai", id: "glm-5" },
+        error: { type: "provider.quota", status: 429 },
+        decision: { retry: true, delay: 15_000 },
+      });
+
+      await retryHook(failure("child"));
+      await retryHook(failure("parent"));
+      await vi.advanceTimersByTimeAsync(11_000);
+
+      expect(synthetic).toHaveBeenCalledOnce();
+      expect(synthetic).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionID: "parent",
+          text: expect.stringMatching(
+            /Continue its work[\s\S]*still-useful child work[\s\S]*child/,
+          ),
+          metadata: expect.objectContaining({
+            sessionWasStalled: true,
+            childIDs: ["child"],
+          }),
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

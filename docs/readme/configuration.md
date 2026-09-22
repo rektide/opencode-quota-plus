@@ -112,8 +112,8 @@ that supports `tui.showToast`. Supported window names are `fiveHour`, `hourly`, 
 
 Retry pacing is enabled by default. When OpenCode classifies a model failure as a quota or
 rate-limit error, the server plugin checks the quota cache for the active provider. If a fresh
-percentage row is exhausted and advertises a future reset, the plugin extends OpenCode's retry
-delay until the latest exhausted window resets, plus a short safety margin.
+percentage row is exhausted and advertises a future reset, the plugin schedules work to revive
+after the latest exhausted window resets, plus a short safety margin.
 
 It does not make another provider request, shorten OpenCode's normal retry delay, or delay errors
 when cached quota is stale, still available, missing a reset time, or belongs to another provider.
@@ -125,14 +125,16 @@ Disable it with:
 }
 ```
 
-Top-level sessions and forks take the long paced retry. Ordinary subagent sessions do not: a
-parented child fails promptly instead of appearing active without making progress. The plugin
-remembers quota-blocked children by parent and, after the reset, sends the parent one grouped
-message containing the child session IDs that can be resumed if their work is still useful.
+Root sessions and ordinary subagents fail promptly instead of appearing active without making
+progress. After reset, the plugin resumes a stalled root with a synthetic message inviting it to
+continue. It remembers quota-blocked children by parent and adds their session IDs to that same
+message, suggesting that the parent resume any child work that is still useful. A parent that did
+not itself stall is still notified when its children become resumable. Forks are independent and
+retain the direct long paced retry.
 
-Long waits and pending child notifications currently belong to the running OpenCode process: a
-service restart or session interrupt cancels them, and OpenCode's built-in maximum retry count
-remains authoritative.
+Long fork waits and pending revival notifications currently belong to the running OpenCode
+process: a service restart or session interrupt cancels them, and OpenCode's built-in maximum
+retry count remains authoritative.
 
 ### Include subagent session tokens
 
@@ -525,7 +527,7 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `sessionTokenScope`           | `"current"`    | Choose `current` for the active session only or `tree` for the active session plus recursive descendants/subagents, counted once. Applies to `/quota`, popup toasts, the Sidebar panel, and the compact input line when `showSessionTokens` is enabled. Does not change `/tokens_session` or `/tokens_session_all`. |
 | `pricingSnapshot.source`      | `"auto"`       | Token pricing snapshot selection for `/tokens_*`: `auto`, `bundled`, or `runtime`.                                                                                                                                                                                                                                  |
 | `pricingSnapshot.autoRefresh` | `7`            | Refresh stale local pricing data after this many days.                                                                                                                                                                                                                                                              |
-| `retryPacing.enabled`         | `true`         | Extend top-level/fork quota retries until a fresh cached exhausted window resets. Parented children fail promptly and are reported to their parent after reset for optional resumption. Adds no provider requests.                                                                                                  |
+| `retryPacing.enabled`         | `true`         | Revive quota-stalled root sessions after reset and include any known quota-failed child IDs for optional resumption. Parented children fail promptly; independent forks retain direct paced retries. Adds no provider requests.                                                                                     |
 
 ### TUI toast settings
 
