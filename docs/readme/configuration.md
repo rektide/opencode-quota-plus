@@ -125,8 +125,14 @@ Disable it with:
 }
 ```
 
-Long waits currently belong to the running OpenCode process: a service restart or session
-interrupt cancels them, and OpenCode's built-in maximum retry count remains authoritative.
+Top-level sessions and forks take the long paced retry. Ordinary subagent sessions do not: a
+parented child fails promptly instead of appearing active without making progress. The plugin
+remembers quota-blocked children by parent and, after the reset, sends the parent one grouped
+message containing the child session IDs that can be resumed if their work is still useful.
+
+Long waits and pending child notifications currently belong to the running OpenCode process: a
+service restart or session interrupt cancels them, and OpenCode's built-in maximum retry count
+remains authoritative.
 
 ### Include subagent session tokens
 
@@ -519,7 +525,7 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `sessionTokenScope`           | `"current"`    | Choose `current` for the active session only or `tree` for the active session plus recursive descendants/subagents, counted once. Applies to `/quota`, popup toasts, the Sidebar panel, and the compact input line when `showSessionTokens` is enabled. Does not change `/tokens_session` or `/tokens_session_all`. |
 | `pricingSnapshot.source`      | `"auto"`       | Token pricing snapshot selection for `/tokens_*`: `auto`, `bundled`, or `runtime`.                                                                                                                                                                                                                                  |
 | `pricingSnapshot.autoRefresh` | `7`            | Refresh stale local pricing data after this many days.                                                                                                                                                                                                                                                              |
-| `retryPacing.enabled`         | `true`         | Extend quota/rate-limit retries until a fresh cached exhausted window resets. Adds no provider requests; process restart or session interruption cancels a pending wait.                                                                                                                                             |
+| `retryPacing.enabled`         | `true`         | Extend top-level/fork quota retries until a fresh cached exhausted window resets. Parented children fail promptly and are reported to their parent after reset for optional resumption. Adds no provider requests.                                                                                                  |
 
 ### TUI toast settings
 
