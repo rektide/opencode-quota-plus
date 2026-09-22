@@ -6,10 +6,7 @@ import {
   createQuotaProviderRuntimeContext,
   type QuotaRuntimeContext,
 } from "./quota-runtime-context.js";
-import {
-  readCachedProviderResult,
-  type CachedProviderRead,
-} from "./quota-state.js";
+import { type CachedProviderRead, readCachedProviderResult } from "./quota-state.js";
 
 /** Let the provider finish opening its window before the next request arrives. */
 export const RETRY_RESET_MARGIN_MS = 10_000;
@@ -33,9 +30,7 @@ type ReadCachedProviderResult = (params: {
 
 export function isQuotaRetryError(error: RetryPacingError): boolean {
   return (
-    error.status === 429 ||
-    error.type === "provider.quota" ||
-    error.type === "provider.rate-limit"
+    error.status === 429 || error.type === "provider.quota" || error.type === "provider.rate-limit"
   );
 }
 

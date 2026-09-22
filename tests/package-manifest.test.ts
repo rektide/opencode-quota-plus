@@ -290,8 +290,8 @@ describe("package manifest compatibility", () => {
       types: "./dist/index.d.ts",
     });
     expect(pkg.exports?.["./server"]).toEqual({
-      default: "./dist/index.js",
-      types: "./dist/index.d.ts",
+      default: "./dist/server.js",
+      types: "./dist/server.d.ts",
     });
     expect(pkg.exports?.["./tui"]).toEqual({
       default: "./dist/tui.js",

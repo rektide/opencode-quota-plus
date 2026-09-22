@@ -1322,7 +1322,6 @@ function applyValidatedQuotaToastPatch(
     applySettingSource(settingSources, "telemetry.enabled", sourcePath);
   }
 
-
   if (patch.retryPacing && hasOwnKey(patch.retryPacing, "enabled")) {
     config.retryPacing.enabled = patch.retryPacing.enabled!;
     applySettingSource(settingSources, "retryPacing.enabled", sourcePath);

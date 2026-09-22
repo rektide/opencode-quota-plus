@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { QuotaProvider, QuotaToastEntry } from "../src/lib/entries.js";
+import type { QuotaRuntimeContext } from "../src/lib/quota-runtime-context.js";
 import {
   isQuotaRetryError,
-  resolveCachedRetryPacingPlan,
   RETRY_RESET_MARGIN_MS,
+  resolveCachedRetryPacingPlan,
 } from "../src/lib/retry-pacing.js";
 import { DEFAULT_CONFIG } from "../src/lib/types.js";
 
@@ -23,7 +24,7 @@ function percentEntry(percentRemaining: number, resetTimeIso: string): QuotaToas
   };
 }
 
-function runtime(provider: QuotaProvider) {
+function runtime(provider: QuotaProvider): QuotaRuntimeContext {
   return {
     client: {
       config: {
@@ -45,7 +46,7 @@ function runtime(provider: QuotaProvider) {
     providers: [provider],
     resolveRuntimeProviderIds: async () => new Set(["zai"]),
     session: {},
-  } as any;
+  } as unknown as QuotaRuntimeContext;
 }
 
 describe("retry pacing", () => {

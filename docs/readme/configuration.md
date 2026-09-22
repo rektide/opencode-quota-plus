@@ -36,6 +36,7 @@ Strict `.json` files also work. Run `/quota_status` if you are unsure which file
 | Show a quota progress bar under the prompt | `tuiPromptBar.enabled`        |
 | Show or hide session input/output tokens   | `showSessionTokens`           |
 | Include descendant/subagent session tokens | `sessionTokenScope: "tree"`   |
+| Wait for quota before retrying a model call | `retryPacing.enabled`         |
 
 The installer chooses `allWindows` by default. If the setting is absent, the built-in default is `singleWindow`.
 
@@ -61,6 +62,7 @@ The installer chooses `allWindows` by default. If the setting is absent, the bui
   },
   "enableToast": false,
   "resetNotifications": { "enabled": false, "windows": ["weekly"] },
+  "retryPacing": { "enabled": true },
   "tuiCompactStatus": { "enabled": false },
   // Show a quota progress bar under the prompt.
   "tuiPromptBar": { "enabled": true },
@@ -105,6 +107,26 @@ Reset notifications use the server popup-toast surface. They do not appear in sl
 output, Sidebar, Compact status, status collection, telemetry, or JSON exports, and require a host
 that supports `tui.showToast`. Supported window names are `fiveHour`, `hourly`, `daily`, `weekly`,
 `monthly`, and `yearly`.
+
+### Pace retries until quota resets
+
+Retry pacing is enabled by default. When OpenCode classifies a model failure as a quota or
+rate-limit error, the server plugin checks the quota cache for the active provider. If a fresh
+percentage row is exhausted and advertises a future reset, the plugin extends OpenCode's retry
+delay until the latest exhausted window resets, plus a short safety margin.
+
+It does not make another provider request, shorten OpenCode's normal retry delay, or delay errors
+when cached quota is stale, still available, missing a reset time, or belongs to another provider.
+Disable it with:
+
+```jsonc
+{
+  "retryPacing": { "enabled": false },
+}
+```
+
+Long waits currently belong to the running OpenCode process: a service restart or session
+interrupt cancels them, and OpenCode's built-in maximum retry count remains authoritative.
 
 ### Include subagent session tokens
 
@@ -497,6 +519,7 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `sessionTokenScope`           | `"current"`    | Choose `current` for the active session only or `tree` for the active session plus recursive descendants/subagents, counted once. Applies to `/quota`, popup toasts, the Sidebar panel, and the compact input line when `showSessionTokens` is enabled. Does not change `/tokens_session` or `/tokens_session_all`. |
 | `pricingSnapshot.source`      | `"auto"`       | Token pricing snapshot selection for `/tokens_*`: `auto`, `bundled`, or `runtime`.                                                                                                                                                                                                                                  |
 | `pricingSnapshot.autoRefresh` | `7`            | Refresh stale local pricing data after this many days.                                                                                                                                                                                                                                                              |
+| `retryPacing.enabled`         | `true`         | Extend quota/rate-limit retries until a fresh cached exhausted window resets. Adds no provider requests; process restart or session interruption cancels a pending wait.                                                                                                                                             |
 
 ### TUI toast settings
 

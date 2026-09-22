@@ -15,8 +15,8 @@
       "default": "./dist/index.js"
     },
     "./server": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
     },
     "./tui": {
       "types": "./dist/tui.d.ts",
