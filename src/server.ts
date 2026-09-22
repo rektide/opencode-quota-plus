@@ -29,7 +29,7 @@ interface ServerPluginContext {
 }
 
 const serverPlugin = {
-  id: "opencode-quota.retry-pacing",
+  id: "@slkiser/opencode-quota",
   async setup(context: ServerPluginContext) {
     const provider = context.provider ?? context.catalog?.provider;
     const client = createTuiV2QuotaClient(provider ? { provider } : undefined, {
