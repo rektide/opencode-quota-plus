@@ -40,3 +40,8 @@ AGENTS.md
 /opencode-quota
 /images
 /local-live-tests/google-agy/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
