@@ -126,15 +126,73 @@ Disable it with:
 ```
 
 Root sessions and ordinary subagents fail promptly instead of appearing active without making
-progress. After reset, the plugin resumes a stalled root with a synthetic message inviting it to
+progress. By default, after reset the plugin resumes a stalled root with a synthetic message inviting it to
 continue. It remembers quota-blocked children by parent and adds their session IDs to that same
 message, suggesting that the parent resume any child work that is still useful. A parent that did
 not itself stall is still notified when its children become resumable. Forks are independent and
 retain the direct long paced retry.
 
-Long fork waits and pending revival notifications currently belong to the running OpenCode
-process: a service restart or session interrupt cancels them, and OpenCode's built-in maximum
-retry count remains authoritative.
+Long fork waits and pending revival notifications currently belong to the running plugin activation:
+unload or process restart loses pending notices, and OpenCode's built-in maximum retry count remains
+authoritative. Session interruption stops a fork's native wait; it does not cancel a root/parent notice
+already recorded in the plugin's timer map. A reset time is cached evidence, not a fresh provider
+availability probe.
+
+#### Choose where recovery notices go
+
+```jsonc
+{
+  "retryPacing": {
+    "enabled": true,
+    "recoveryNotice": "human",
+  },
+}
+```
+
+| `retryPacing.recoveryNotice` | Delivery after a recorded root/child stall reaches reset + margin |
+| --- | --- |
+| `"assistant"` (default) | Native `session.synthetic({ resume: true })` to the stalled root or the child's parent. Starts/continues assistant execution, remains in model context, and appears in the transcript. |
+| `"human"` | Success toast in connected quota-plus V2 TUIs for that session's Location. No synthetic message, model-context insertion, or automatic execution. Resume useful work manually. |
+| `"both"` | The resumptive assistant message and the human toast. |
+| `"off"` | No recovery notice or automatic revival. Root/child requests still fail promptly; independent forks still use direct paced retries. Use `retryPacing.enabled: false` to disable the entire pacing policy instead. |
+
+These options follow the existing quota config precedence, including server-plugin `options`.
+Invalid values are ignored; there is no `smart` mode. Destination policy is read again when the
+notice fires, so a policy change can affect already-pending notices. Child notices use the **parent's**
+destination policy and may be combined with that parent's own stall. They list child IDs for review;
+they never automatically resume each child or switch agents/models.
+
+Human notices use native plugin RPC events, not `synthetic({ resume: false })`: the latter is
+admit-only, not human-only. They require both the quota-plus server and V2 TUI plugins on a host
+with native RPC, but **do not require Composed**. They respect `enableToast` and `toastDurationMs`.
+Events are ephemeral: with no connected matching TUI they are not replayed later. They do not
+produce Desktop/web/CLI output or durable human-only transcript entries. There is no fallback from
+human-only to AI delivery. Failed human delivery is logged and retried by the existing process-local
+notifier; in `both` mode a supplementary UI failure is logged without replaying a successfully
+admitted AI message.
+
+#### Optional Composed/sidebar control
+
+On a native-RPC V2 host, a **Quota reset** row displays the effective destination. Click to cycle:
+**inherit config → assistant → human → both → off → inherit config**. `AI` labels `assistant`;
+`(config)` marks inheritance. The override affects the viewed session as a notification recipient
+(including its children's notices), is shared by connected TUIs through server RPC, and lasts only
+for this server-plugin activation. It does not modify any config file, persist over plugin reload or
+restart, enable disabled retry pacing, or reactivate previously suppressed notices. An unavailable
+server/read disables changes and shows `unavailable`; writes report errors instead of assuming success.
+
+With a Composed-capable host and Sidetoggle publisher, this row contributes to
+`opencode.sidetoggle.controls.v1`. Without the publisher the host selects the row's ordinary
+`sidebar.footer` fallback. Without the composition capability, it registers that fallback directly.
+There is only one route for the control; disposing the plugin removes its control and subscriptions.
+No runtime dependency on Composed/Sidetoggle or implicit plugin activation is introduced. Hosts
+without native RPC keep existing assistant delivery but do not show the interactive control.
+
+This is separate from [`resetNotifications`](#notify-when-quota-becomes-available-again), the inherited
+opt-in observed-window toast setting. Recovery here is scheduled from an actual quota failure plus
+fresh cached exhausted-window evidence, not from arbitrary window transitions. It does not inspect
+later message activity or decide whether resumed/fallback work already completed. That future
+smart-notice policy is tracked as **`opqup-recovery-smart-notice`**, not implemented.
 
 ### Include subagent session tokens
 
@@ -528,6 +586,7 @@ Existing `experimental.quotaToast` settings remain supported. Quota settings do 
 | `pricingSnapshot.source`      | `"auto"`       | Token pricing snapshot selection for `/tokens_*`: `auto`, `bundled`, or `runtime`.                                                                                                                                                                                                                                  |
 | `pricingSnapshot.autoRefresh` | `7`            | Refresh stale local pricing data after this many days.                                                                                                                                                                                                                                                              |
 | `retryPacing.enabled`         | `true`         | Revive quota-stalled root sessions after reset and include any known quota-failed child IDs for optional resumption. Parented children fail promptly; independent forks retain direct paced retries. Adds no provider requests.                                                                                     |
+| `retryPacing.recoveryNotice` | `"assistant"` | Scheduled root/parent recovery destination: `"assistant"`, `"human"`, `"both"`, or `"off"`. Optional sidebar control supplies activation-lifetime per-session overrides. |
 
 ### TUI toast settings
 

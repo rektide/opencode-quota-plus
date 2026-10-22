@@ -38,7 +38,7 @@ Monthly               26.0d 13% done
 ███░░░░░░░░░░░░░░░░░░░░░░░   10% used
 ```
 
-The indicator is default-on, works on every surface (sidebar, toasts, `/quota`, terminal `show`), and rounds to your configured percent precision. The same pacing math drives [conditional bar themes](#composable-bar-themes), so bars can change color or glyphs as you drift off pace.
+The indicator is default-on, works on every surface (sidebar, toasts, `/quota`, terminal `show`), and rounds to your configured percent precision. The same pacing math drives [conditional bar themes](docs/readme/configuration.md#conditional-themes), so bars can change color or glyphs as you drift off pace.
 
 ## What the fork adds
 
@@ -117,7 +117,8 @@ More ways to use it:
 - Check quota anywhere: use `opencode-quota show` in a terminal or the same slash commands in the TUI, Web, and Desktop.
 - Automate quota checks with JSON output for scripts, status bars, and CI. Optional OpenTelemetry metrics support monitoring tools.
 - Customize the display with [`tuiPromptBar.enabled`](docs/readme/configuration.md#tui-settings), OpenCode Go's preferred collapsed-sidebar window, reset precision, and [`accountingDetail`](docs/readme/configuration.md#show-accounting-detail).
-- Choose current-session or descendant-tree token totals. Get reset popups for selected windows with [`resetNotifications`](docs/readme/configuration.md#notify-on-quota-becomes-available-again).
+- Choose current-session or descendant-tree token totals. Get reset popups for selected windows with [`resetNotifications`](docs/readme/configuration.md#notify-when-quota-becomes-available-again).
+- Route stalled-work recovery to a resumptive assistant message, a human-only toast, both, or neither with [`retryPacing.recoveryNotice`](docs/readme/configuration.md#choose-where-recovery-notices-go). The optional Composed/sidebar control changes this per session without editing config.
 - Revive quota-stalled work after the exhausted provider window resets. This is on by default; roots are prompted to continue, quota-failed children are offered back to their parent, and independent forks retain direct paced retries.
 - Troubleshoot authentication, quota sources, pricing, and maintainer notices.
 
