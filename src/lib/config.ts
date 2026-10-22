@@ -21,6 +21,7 @@ import { getOpencodeRuntimeDirCandidates } from "./opencode-runtime-paths.js";
 import { getQuotaProviderShape, normalizeQuotaProviderId } from "./provider-metadata.js";
 import { isQuotaFormatStyle, resolveQuotaFormatStyle } from "./quota-format-style.js";
 import { cloneQuotaProviders, validateQuotaProviders } from "./quota-providers.js";
+import { isRecoveryDestination } from "./quota-recovery-contract.js";
 import type {
   CursorQuotaPlan,
   GoogleModelId,
@@ -96,6 +97,7 @@ export const QUOTA_TOAST_SETTING_SOURCE_KEYS = [
   "export.path",
   "telemetry.enabled",
   "retryPacing.enabled",
+  "retryPacing.recoveryNotice",
 ] as const;
 
 export type QuotaToastSettingSourceKey = (typeof QUOTA_TOAST_SETTING_SOURCE_KEYS)[number];
@@ -668,6 +670,10 @@ function extractRetryPacingConfigPatch(value: unknown): RetryPacingConfigPatch |
 
   if (hasOwnKey(value, "enabled") && typeof value.enabled === "boolean") {
     patch.enabled = value.enabled;
+  }
+
+  if (hasOwnKey(value, "recoveryNotice") && isRecoveryDestination(value.recoveryNotice)) {
+    patch.recoveryNotice = value.recoveryNotice;
   }
 
   return Object.keys(patch).length > 0 ? patch : undefined;
@@ -1325,6 +1331,11 @@ function applyValidatedQuotaToastPatch(
   if (patch.retryPacing && hasOwnKey(patch.retryPacing, "enabled")) {
     config.retryPacing.enabled = patch.retryPacing.enabled!;
     applySettingSource(settingSources, "retryPacing.enabled", sourcePath);
+  }
+
+  if (patch.retryPacing && hasOwnKey(patch.retryPacing, "recoveryNotice")) {
+    config.retryPacing.recoveryNotice = patch.retryPacing.recoveryNotice!;
+    applySettingSource(settingSources, "retryPacing.recoveryNotice", sourcePath);
   }
 }
 

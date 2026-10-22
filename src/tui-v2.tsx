@@ -2,7 +2,7 @@
 
 import { RGBA } from "@opentui/core";
 import type { JSX } from "@opentui/solid";
-import { createSignal, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, onCleanup, Show } from "solid-js";
 import { sanitizeDisplayText } from "./lib/display-sanitize.js";
 import { formatQuotaRows } from "./lib/format.js";
 import { formatResetCountdown } from "./lib/format-utils.js";
@@ -12,6 +12,18 @@ import {
   type QuotaDialogCommandId,
 } from "./lib/quota-dialog-commands.js";
 import { resolveQuotaFormatStyle } from "./lib/quota-format-style.js";
+import {
+  quotaRecoveryControls,
+  type RecoveryLocation,
+  type RecoveryRpcClient,
+  type RecoveryState,
+} from "./lib/quota-recovery-contract.js";
+import {
+  createRecoveryControl,
+  getRecoveryRpc,
+  recoveryControlLabel,
+  subscribeRecoveryNotices,
+} from "./lib/quota-recovery-tui.js";
 import { collectQuotaRenderData, type QuotaRenderData } from "./lib/quota-render-data.js";
 import {
   createQuotaRuntimeRequestContext,
@@ -64,15 +76,22 @@ type SlotClaim<Path extends SlotPath = SlotPath> = Path extends SlotPath
 
 type TuiContext = {
   client: unknown;
+  location?: RecoveryLocation;
   options?: Record<string, unknown>;
   theme?: {
+    text?: { default: RGBA; subdued: RGBA };
     /** Host theme tokens, addressed dynamically (text, textMuted, success, ...). */
     current?: Readonly<Record<string, RGBA | undefined>>;
   };
   data: {
     on: (event: string, handler: (event: TuiEvent) => void) => () => void;
     session: {
-      get: (sessionID: string) => { model?: { id?: string; providerID?: string } } | undefined;
+      get: (sessionID: string) =>
+        | {
+            model?: { id?: string; providerID?: string };
+            location?: RecoveryLocation;
+          }
+        | undefined;
     };
   };
   keymap: {
@@ -91,6 +110,16 @@ type TuiContext = {
     ) => void;
   };
   ui: {
+    composition?: {
+      contribute(
+        surface: typeof quotaRecoveryControls,
+        contribution: {
+          id: string;
+          render: (input: { sessionID: string }) => JSX.Element;
+          fallback: SlotClaim<"sidebar.footer">;
+        },
+      ): () => void;
+    };
     slot: (claim: SlotClaim) => () => void;
     toast: { show: (toast: Toast) => void };
     dialog: {
@@ -570,9 +599,86 @@ function HomeFooterQuotaView(props: { context: TuiContext }): JSX.Element | null
   );
 }
 
+function RecoveryNoticeControl(props: {
+  context: TuiContext;
+  rpc: RecoveryRpcClient;
+  sessionID: string;
+}): JSX.Element {
+  const [state, setState] = createSignal<RecoveryState | undefined>(undefined);
+  const [pending, setPending] = createSignal(false);
+  let activate: (() => Promise<void>) | undefined;
+  createEffect(() => {
+    const sessionID = props.sessionID;
+    setState(undefined);
+    const control = createRecoveryControl({
+      rpc: props.rpc,
+      sessionID,
+      location: () => props.context.data.session.get(sessionID)?.location,
+      update: (next, writing) => {
+        setState(next);
+        setPending(writing);
+      },
+      onError: (error) =>
+        props.context.ui.toast.show({
+          variant: "error",
+          title: "Quota recovery setting failed",
+          message: error instanceof Error ? error.message : String(error),
+        }),
+    });
+    activate = control.activate;
+    const stops = ["session.updated", "server.connected", "plugin.updated", "config.updated"].map(
+      (event) => props.context.data.on(event, control.refresh),
+    );
+    onCleanup(() => {
+      control.dispose();
+      stops.forEach((stop) => {
+        stop();
+      });
+      activate = undefined;
+    });
+  });
+  return (
+    <text
+      fg={
+        props.context.theme?.text?.subdued ??
+        props.context.theme?.current?.textMuted ??
+        terminalForeground
+      }
+      wrapMode="none"
+      onMouseUp={() => {
+        void activate?.();
+      }}
+    >
+      {`${recoveryControlLabel(state())}${pending() ? " …" : ""}`}
+    </text>
+  );
+}
+
 const plugin = {
   id: "@slkiser/opencode-quota",
   setup(context: TuiContext) {
+    const recoveryRpc = getRecoveryRpc(context.client);
+    const stopRecoveryNotices = recoveryRpc
+      ? subscribeRecoveryNotices({
+          rpc: recoveryRpc,
+          location: (sessionID) =>
+            context.data.session.get(sessionID)?.location ?? context.location,
+          showToast: (body) => context.ui.toast.show(body),
+        })
+      : undefined;
+    const renderRecovery = (input: { sessionID: string }) => (
+      <RecoveryNoticeControl context={context} rpc={recoveryRpc!} sessionID={input.sessionID} />
+    );
+    const recoveryFallback = { append: "sidebar.footer", render: renderRecovery } as const;
+    const disposeRecoveryControl = recoveryRpc
+      ? context.ui.composition
+        ? context.ui.composition.contribute(quotaRecoveryControls, {
+            id: "quota-recovery",
+            render: renderRecovery,
+            fallback: recoveryFallback,
+          })
+        : context.ui.slot(recoveryFallback)
+      : undefined;
     let disposeEvents: (() => void) | undefined;
     let activeSessionID: string | undefined;
     const questionToolCalls = new Set<string>();
@@ -654,6 +760,8 @@ const plugin = {
       render: () => <HomeFooterQuotaView context={context} />,
     });
     return () => {
+      stopRecoveryNotices?.();
+      disposeRecoveryControl?.();
       disposeEvents?.();
       disposeApp();
       disposeSidebar();

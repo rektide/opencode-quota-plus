@@ -85,9 +85,13 @@ export interface QuotaTelemetryConfig {
   enabled: boolean;
 }
 
+export type RecoveryDestination = "assistant" | "human" | "both" | "off";
+
 export interface RetryPacingConfig {
   /** Whether provider quota resets may extend OpenCode retry delays. Default: true. */
   enabled: boolean;
+  /** Destination for scheduled root/parent recovery notices. Default: assistant. */
+  recoveryNotice: RecoveryDestination;
 }
 
 export interface MaintainerAnnouncementsConfig {
@@ -337,6 +341,7 @@ export const DEFAULT_CONFIG: QuotaToastConfig = {
   },
   retryPacing: {
     enabled: true,
+    recoveryNotice: "assistant",
   },
   layout: {
     maxWidth: 50,

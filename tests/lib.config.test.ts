@@ -72,6 +72,21 @@ describe("loadConfig", () => {
     expect(disabled.meta.settingSources["retryPacing.enabled"]).toBe("client.config.get");
   });
 
+  it("defaults recovery to assistant and accepts only explicit supported destinations", async () => {
+    expect((await loadSdkConfig({})).config.retryPacing.recoveryNotice).toBe("assistant");
+    for (const recoveryNotice of ["assistant", "human", "both", "off"]) {
+      const loaded = await loadSdkConfig({ retryPacing: { recoveryNotice } });
+      expect(loaded.config.retryPacing.recoveryNotice).toBe(recoveryNotice);
+      expect(loaded.config.retryPacing.enabled).toBe(true);
+    }
+    for (const recoveryNotice of ["smart", "inherit", false, [], null]) {
+      expect(
+        (await loadSdkConfig({ retryPacing: { recoveryNotice } })).config.retryPacing
+          .recoveryNotice,
+      ).toBe("assistant");
+    }
+  });
+
   it("defaults and validates native TUI command display with provenance", async () => {
     const defaults = await loadSdkConfig({});
     expect(defaults.config.tuiCommandDisplay).toBe("inline");

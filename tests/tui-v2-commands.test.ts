@@ -89,4 +89,46 @@ describe("V2 quota TUI commands", () => {
     expect(statusClaim).toBeDefined();
     expect(statusClaim.render({ mode: "normal" })).toBeNull();
   });
+
+  it.each([
+    false,
+    true,
+  ])("routes the recovery control exactly once with composition=%s", (composed) => {
+    const stopNotice = vi.fn();
+    const disposeControl = vi.fn();
+    const rpc = { events: { on: vi.fn(() => stopNotice) } };
+    const contribute = vi.fn(() => disposeControl);
+    const slot = vi.fn(() => vi.fn());
+    const context = {
+      client: { rpc: vi.fn(() => rpc) },
+      data: { on: vi.fn(() => vi.fn()), session: { get: vi.fn() } },
+      keymap: { layer: vi.fn() },
+      ui: {
+        slot,
+        ...(composed ? { composition: { contribute } } : {}),
+        toast: { show: vi.fn() },
+        dialog: { alert: vi.fn(), prompt: vi.fn(), set: vi.fn() },
+      },
+    };
+    const cleanup = plugin.setup(context as never);
+    expect(rpc.events.on).toHaveBeenCalledWith("notice", expect.any(Function));
+    if (composed) {
+      expect(contribute).toHaveBeenCalledWith(
+        { id: "opencode.sidetoggle.controls.v1" },
+        {
+          id: "quota-recovery",
+          render: expect.any(Function),
+          fallback: { append: "sidebar.footer", render: expect.any(Function) },
+        },
+      );
+      const contribution = contribute.mock.calls[0]![1];
+      expect(contribution.render).toBe(contribution.fallback.render);
+    }
+    expect(slot.mock.calls.filter(([claim]) => claim.append === "sidebar.footer")).toHaveLength(
+      composed ? 1 : 2,
+    );
+    cleanup();
+    expect(stopNotice).toHaveBeenCalledOnce();
+    expect(disposeControl).toHaveBeenCalledTimes(composed ? 1 : 0);
+  });
 });

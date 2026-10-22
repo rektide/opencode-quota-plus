@@ -1,4 +1,11 @@
 import { createQuotaStallNotifier, type QuotaStall } from "./lib/parent-quota-failures.js";
+import {
+  quotaRecoveryRpc,
+  type RecoveryOverride,
+  type RecoveryRpcRegistration,
+  type RecoveryRpcServer,
+  type RecoveryState,
+} from "./lib/quota-recovery-contract.js";
 import { resolveQuotaRuntimeContext } from "./lib/quota-runtime-context.js";
 import {
   isQuotaRetryError,
@@ -26,6 +33,7 @@ interface ServerPluginContext {
   readonly location: { directory: string };
   readonly provider?: { list(input?: unknown): Promise<unknown> };
   readonly catalog?: { provider?: { list(input?: unknown): Promise<unknown> } };
+  readonly rpc?: RecoveryRpcServer;
   readonly session: {
     hook(name: "retry", callback: (event: RetryHookEvent) => Promise<void>): Promise<Registration>;
     get(input: { sessionID: string }): Promise<{
@@ -71,22 +79,83 @@ const serverPlugin = {
       roots: { fallbackDirectory: context.location.directory },
     });
 
+    const overrides = new Map<string, Exclude<RecoveryOverride, "inherit">>();
+    const runtimeContext = () =>
+      resolveQuotaRuntimeContext({
+        client,
+        roots: { fallbackDirectory: context.location.directory },
+        configureTelemetry: false,
+        pluginOptions: context.options,
+      });
+    const recoveryState = async (sessionID: string): Promise<RecoveryState> => {
+      const runtime = await runtimeContext();
+      return {
+        sessionID,
+        enabled: runtime.config.enabled && runtime.config.retryPacing.enabled,
+        destination: overrides.get(sessionID) ?? runtime.config.retryPacing.recoveryNotice,
+        override: overrides.get(sessionID) ?? "inherit",
+      };
+    };
+    let recoveryRpc: RecoveryRpcRegistration | undefined;
+    recoveryRpc = await context.rpc?.register(quotaRecoveryRpc, {
+      state: async ({ sessionID }) => {
+        await context.session.get({ sessionID });
+        return recoveryState(sessionID);
+      },
+      set: async ({ sessionID, override }) => {
+        await context.session.get({ sessionID });
+        if (override === "inherit") overrides.delete(sessionID);
+        else overrides.set(sessionID, override);
+        const state = await recoveryState(sessionID);
+        await recoveryRpc?.events.emit("changed", state);
+        return state;
+      },
+    });
+
     const quotaStalls = createQuotaStallNotifier({
       notify: async (notifySessionID, stalls) => {
+        const state = await recoveryState(notifySessionID);
+        if (!state.enabled || state.destination === "off") return;
         const children = stalls.filter((stall) => stall.relation === "child");
-        await context.session.synthetic({
-          sessionID: notifySessionID,
-          resume: true,
-          description: "Quota is available; interrupted work can resume",
-          text: quotaResetMessage(stalls),
-          metadata: {
-            source: "opencode-quota",
-            state: "quota-reset",
-            sessionWasStalled: stalls.some((stall) => stall.relation === "self"),
-            childIDs: children.map((stall) => stall.stalledSessionID),
-            childCount: children.length,
-          },
-        });
+        const text = quotaResetMessage(stalls);
+        if (state.destination === "assistant" || state.destination === "both") {
+          await context.session.synthetic({
+            sessionID: notifySessionID,
+            resume: true,
+            description: "Quota is available; interrupted work can resume",
+            text,
+            metadata: {
+              source: "opencode-quota",
+              state: "quota-reset",
+              sessionWasStalled: stalls.some((stall) => stall.relation === "self"),
+              childIDs: children.map((stall) => stall.stalledSessionID),
+              childCount: children.length,
+            },
+          });
+        }
+        if (state.destination === "human" || state.destination === "both") {
+          const emit = async () => {
+            if (!recoveryRpc) throw new Error("Human recovery notices require native plugin RPC");
+            const runtime = await runtimeContext();
+            // Human-only means no synthetic admission at all: resume:false is
+            // merely admit-only and would still pollute subsequent AI context.
+            if (runtime.config.enableToast) {
+              await recoveryRpc.events.emit("notice", {
+                sessionID: notifySessionID,
+                text,
+                duration: runtime.config.toastDurationMs,
+              });
+            }
+          };
+          if (state.destination === "human") await emit();
+          else {
+            // Do not replay a successfully admitted resumptive message just
+            // because the supplementary, ephemeral UI delivery failed.
+            await emit().catch((error: unknown) => {
+              console.warn("[opencode-quota] failed to emit human recovery notice", error);
+            });
+          }
+        }
       },
       onError: (error, notifySessionID) => {
         console.warn("[opencode-quota] failed to revive quota-stalled session", {
@@ -101,12 +170,7 @@ const serverPlugin = {
 
       try {
         const session = await context.session.get({ sessionID: event.sessionID });
-        const runtime = await resolveQuotaRuntimeContext({
-          client,
-          roots: { fallbackDirectory: context.location.directory },
-          configureTelemetry: false,
-          pluginOptions: context.options,
-        });
+        const runtime = await runtimeContext();
         const plan = await resolveCachedRetryPacingPlan({
           runtime,
           providerID: event.model.providerID,
@@ -171,6 +235,8 @@ const serverPlugin = {
 
     return async () => {
       quotaStalls.dispose();
+      overrides.clear();
+      await recoveryRpc?.dispose();
       await registration.dispose();
     };
   },
