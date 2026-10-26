@@ -5,7 +5,7 @@
  * to resolve API keys with consistent priority and behavior.
  */
 
-import { existsSync } from "fs";
+import { existsSync } from "node:fs";
 import { sanitizeDisplayText } from "./display-sanitize.js";
 import { resolveEnvTemplate } from "./env-template.js";
 import {

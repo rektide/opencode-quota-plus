@@ -434,7 +434,10 @@ function createMiniMaxProvider(spec: MiniMaxProviderSpec): QuotaProvider {
             [row.integrationId]: row.value,
           } as AuthData);
           if (rowAuth.state === "invalid") {
-            invalidErrors.push({ label: displayNamesByRowId.get(row.id) ?? spec.label, message: rowAuth.error });
+            invalidErrors.push({
+              label: displayNamesByRowId.get(row.id) ?? spec.label,
+              message: rowAuth.error,
+            });
           }
           return rowAuth.state === "configured" ? [{ row, auth: rowAuth }] : [];
         });

@@ -122,7 +122,10 @@ export const opencodeGoProvider: QuotaProvider = {
       const credentials = credentialRows.flatMap((row) => {
         const rowAuth = resolveOpenCodeGoAuth({ [row.integrationId]: row.value });
         if (rowAuth.state === "invalid") {
-          invalidErrors.push({ label: displayNamesByRowId.get(row.id) ?? OPENCODE_GO_PROVIDER_LABEL, message: rowAuth.error });
+          invalidErrors.push({
+            label: displayNamesByRowId.get(row.id) ?? OPENCODE_GO_PROVIDER_LABEL,
+            message: rowAuth.error,
+          });
         }
         return rowAuth.state === "configured" ? [{ row, auth: rowAuth }] : [];
       });

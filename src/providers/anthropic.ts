@@ -99,9 +99,9 @@ export const anthropicProvider: QuotaProvider = {
     if (databaseCredentials.length > 0) {
       const results = await Promise.all(
         databaseCredentials.map(async ({ row, auth }) => ({
-            row,
-            result: await queryAnthropicQuotaWithOAuth(auth.accessToken, options.requestTimeoutMs),
-          })),
+          row,
+          result: await queryAnthropicQuotaWithOAuth(auth.accessToken, options.requestTimeoutMs),
+        })),
       );
       const names = formatCredentialDisplayNames(
         "Claude",

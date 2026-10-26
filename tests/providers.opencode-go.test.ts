@@ -125,19 +125,39 @@ describe("opencode-go provider", () => {
   it("keeps a valid inactive duplicate-label database credential when the active row is invalid", async () => {
     const { readCredentialRows } = await import("../src/lib/opencode-auth.js");
     mocks.getOpenCodeGoAuthDiagnostics.mockResolvedValueOnce(diagnostics("invalid"));
-    mocks.resolveOpenCodeGoAuthCached.mockResolvedValueOnce({ state: "invalid", error: "empty key" });
+    mocks.resolveOpenCodeGoAuthCached.mockResolvedValueOnce({
+      state: "invalid",
+      error: "empty key",
+    });
     (readCredentialRows as any).mockResolvedValueOnce([
-      { id: "bad", integrationId: "opencode-go", label: "shared", active: true, value: { key: "" } },
-      { id: "good", integrationId: "opencode-go", label: "shared", active: false, value: { key: "ok" } },
+      {
+        id: "bad",
+        integrationId: "opencode-go",
+        label: "shared",
+        active: true,
+        value: { key: "" },
+      },
+      {
+        id: "good",
+        integrationId: "opencode-go",
+        label: "shared",
+        active: false,
+        value: { key: "ok" },
+      },
     ]);
     mocks.resolveOpenCodeGoAuth.mockImplementation((auth: any) =>
-      auth["opencode-go"].key ? { state: "configured", apiKey: "row-token" } : { state: "invalid", error: "empty key" },
+      auth["opencode-go"].key
+        ? { state: "configured", apiKey: "row-token" }
+        : { state: "invalid", error: "empty key" },
     );
 
     const out = await runFetch();
     expect(out.errors).toContainEqual({ label: "[OpenCode Go shared]*", message: "empty key" });
     expect(out.entries).toContainEqual(
-      expect.objectContaining({ group: "[OpenCode Go shared 2]", accounting: expect.objectContaining({ sourceId: "good" }) }),
+      expect.objectContaining({
+        group: "[OpenCode Go shared 2]",
+        accounting: expect.objectContaining({ sourceId: "good" }),
+      }),
     );
     expect(out.entries).toHaveLength(3);
     expect(mocks.queryOpenCodeGoQuota).toHaveBeenCalledOnce();

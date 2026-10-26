@@ -1,5 +1,5 @@
-import { mkdir, rename, rm, writeFile } from "fs/promises";
-import { dirname } from "path";
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { stringifyWithComments } from "./jsonc.js";
 
 export interface WriteJsonAtomicOptions {

@@ -6,9 +6,9 @@ declare module "bun:sqlite" {
   };
 
   export class Statement {
-    all(...params: any[]): any[];
-    get(...params: any[]): any;
-    run(...params: any[]): any;
+    all(...params: unknown[]): unknown[];
+    get(...params: unknown[]): unknown;
+    run(...params: unknown[]): unknown;
   }
 
   export class Database {

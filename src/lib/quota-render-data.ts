@@ -9,9 +9,7 @@ import type {
   QuotaToastError,
   SessionTokensData,
 } from "./entries.js";
-import { cloneQuotaToastEntry } from "./entries.js";
-
-import { isPercentEntry } from "./entries.js";
+import { cloneQuotaToastEntry, isPercentEntry } from "./entries.js";
 import { applyEntryVisibilityToEntries, resolveEntryVisibilityPolicy } from "./entry-visibility.js";
 import { formatGroupedHeader } from "./grouped-header-format.js";
 import {
@@ -564,7 +562,11 @@ export async function collectQuotaRenderData(params: {
     : results;
 
   const style = params.formatStyle ?? params.config.formatStyle;
-  const entries = projectQuotaProviderResults(visibleResults, style, params.config.accountingDetail);
+  const entries = projectQuotaProviderResults(
+    visibleResults,
+    style,
+    params.config.accountingDetail,
+  );
   const errors = visibleResults.flatMap((result) => result.errors);
   const attemptedAny = results.some((result) => result.attempted);
 

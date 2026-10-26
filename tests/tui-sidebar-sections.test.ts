@@ -85,12 +85,10 @@ describe("buildSidebarQuotaSections", () => {
     expect(errorSection?.headerLine).toBeNull();
     // Credential-shaped failures collapse to the canned summary; the real
     // text stays available as expandable detail.
-    expect(errorSection?.rows[0]!.lines).toEqual(["[OpenRouter] bad credentials"]);
-    expect(errorSection?.rows[0]!.quiet).toBe(true);
-    expect(errorSection?.rows[0]!.detailLines).toEqual([
-      "[OpenRouter] Invalid",
-      "  openrouter-key-v1 response",
-    ]);
+    const errorRow = errorSection?.rows[0];
+    expect(errorRow?.lines).toEqual(["[OpenRouter] bad credentials"]);
+    expect(errorRow?.quiet).toBe(true);
+    expect(errorRow?.detailLines).toEqual(["[OpenRouter] Invalid", "  openrouter-key-v1 response"]);
   });
 
   it("flattens to the same content as the panel-lines formatter", () => {

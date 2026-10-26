@@ -1,5 +1,5 @@
-import { existsSync } from "fs";
-import { dirname, isAbsolute, join, resolve } from "path";
+import { existsSync } from "node:fs";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 
 export type ConfigFileKind = "opencode" | "tui";
 export type ConfigFileFormat = "json" | "jsonc";

@@ -36,9 +36,7 @@ function formatCompactPercentLabel(
   mode: QuotaToastConfig["percentDisplayMode"],
   decimals?: number,
 ): string {
-  return (
-    formatDisplayedPercentLabel(percentRemaining, mode, decimals).split(" ")[0] ?? "0%"
-  );
+  return formatDisplayedPercentLabel(percentRemaining, mode, decimals).split(" ")[0] ?? "0%";
 }
 
 function formatCompactDisplayName(name: string): string {

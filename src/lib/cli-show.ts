@@ -1,4 +1,4 @@
-import { resolve } from "path";
+import { resolve } from "node:path";
 import { hasAnthropicCredentialsConfigured } from "./anthropic.js";
 import { findGitWorktreeRoot, getEffectiveConfigRoot } from "./config-file-utils.js";
 import { sanitizeQuotaRenderData } from "./display-sanitize.js";

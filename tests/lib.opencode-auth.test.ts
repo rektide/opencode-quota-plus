@@ -6,9 +6,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   clearReadAuthFileCacheForTests,
+  formatCredentialDisplayNames,
   getCredentialDatabasePath,
   getCredentialDatabasePaths,
-  formatCredentialDisplayNames,
   readAuthFile,
   readCredentialRows,
 } from "../src/lib/opencode-auth.js";

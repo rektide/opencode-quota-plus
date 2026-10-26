@@ -97,7 +97,7 @@ describe("example provider config", () => {
         }
       }`,
     );
-    (readAuthFile as any).mockResolvedValue(null);
+    vi.mocked(readAuthFile).mockResolvedValue(null);
 
     const { resolveExampleProviderApiKey } = await import("../src/lib/example-provider-config.js");
     await expect(resolveExampleProviderApiKey()).resolves.toBeNull();
@@ -120,7 +120,7 @@ describe("example provider config", () => {
         },
       }),
     );
-    (readAuthFile as any).mockResolvedValue(null);
+    vi.mocked(readAuthFile).mockResolvedValue(null);
 
     const { resolveExampleProviderApiKey } = await import("../src/lib/example-provider-config.js");
     await expect(resolveExampleProviderApiKey()).resolves.toBeNull();
@@ -133,7 +133,7 @@ describe("example provider config", () => {
     const { readAuthFile } = await import("../src/lib/opencode-auth.js");
 
     fsConfigMocks.existsSync.mockImplementation((path: string) => path === workspacePath);
-    (readAuthFile as any).mockResolvedValue(null);
+    vi.mocked(readAuthFile).mockResolvedValue(null);
 
     const { resolveExampleProviderApiKey } = await import("../src/lib/example-provider-config.js");
     await expect(resolveExampleProviderApiKey()).resolves.toBeNull();
@@ -143,7 +143,7 @@ describe("example provider config", () => {
     const { readAuthFile } = await import("../src/lib/opencode-auth.js");
 
     fsConfigMocks.existsSync.mockReturnValue(false);
-    (readAuthFile as any).mockResolvedValueOnce({
+    vi.mocked(readAuthFile).mockResolvedValueOnce({
       "example-provider": { type: "api", key: "auth-key" },
     });
 

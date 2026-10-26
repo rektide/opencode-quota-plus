@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { QuotaProviderContext } from "../lib/entries.js";
 import { exampleProviderProvider } from "../src/providers/example-provider.js";
 import {
   expectAttemptedWithErrorLabel,
@@ -21,21 +22,21 @@ vi.mock("../src/lib/provider-availability.js", () => ({
 describe("example provider", () => {
   it("returns attempted:false when not configured", async () => {
     const { queryExampleProviderQuota } = await import("../src/lib/example-provider.js");
-    (queryExampleProviderQuota as any).mockResolvedValueOnce(null);
+    vi.mocked(queryExampleProviderQuota).mockResolvedValueOnce(null);
 
-    const out = await exampleProviderProvider.fetch({} as any);
+    const out = await exampleProviderProvider.fetch({} as QuotaProviderContext);
     expectNotAttempted(out);
   });
 
   it("maps success into a quota entry", async () => {
     const { queryExampleProviderQuota } = await import("../src/lib/example-provider.js");
-    (queryExampleProviderQuota as any).mockResolvedValueOnce({
+    vi.mocked(queryExampleProviderQuota).mockResolvedValueOnce({
       success: true,
       percentRemaining: 75,
       resetTimeIso: "2026-01-02T00:00:00.000Z",
     });
 
-    const out = await exampleProviderProvider.fetch({} as any);
+    const out = await exampleProviderProvider.fetch({} as QuotaProviderContext);
     expectAttemptedWithNoErrors(out);
     expect(out.entries).toEqual([
       {
@@ -54,28 +55,32 @@ describe("example provider", () => {
 
   it("maps provider errors into quota errors", async () => {
     const { queryExampleProviderQuota } = await import("../src/lib/example-provider.js");
-    (queryExampleProviderQuota as any).mockResolvedValueOnce({
+    vi.mocked(queryExampleProviderQuota).mockResolvedValueOnce({
       success: false,
       error: "Unauthorized",
     });
 
-    const out = await exampleProviderProvider.fetch({} as any);
+    const out = await exampleProviderProvider.fetch({} as QuotaProviderContext);
     expectAttemptedWithErrorLabel(out, "Example Provider");
   });
 
   it("is available when canonical provider metadata is available", async () => {
     const { isCanonicalProviderAvailable } = await import("../src/lib/provider-availability.js");
-    (isCanonicalProviderAvailable as any).mockResolvedValueOnce(true);
+    vi.mocked(isCanonicalProviderAvailable).mockResolvedValueOnce(true);
 
-    await expect(exampleProviderProvider.isAvailable({} as any)).resolves.toBe(true);
+    await expect(exampleProviderProvider.isAvailable({} as QuotaProviderContext)).resolves.toBe(
+      true,
+    );
   });
 
   it("falls back to trusted API key presence when provider metadata is absent", async () => {
     const { isCanonicalProviderAvailable } = await import("../src/lib/provider-availability.js");
     const { hasExampleProviderApiKey } = await import("../src/lib/example-provider-config.js");
-    (isCanonicalProviderAvailable as any).mockResolvedValueOnce(false);
-    (hasExampleProviderApiKey as any).mockResolvedValueOnce(true);
+    vi.mocked(isCanonicalProviderAvailable).mockResolvedValueOnce(false);
+    vi.mocked(hasExampleProviderApiKey).mockResolvedValueOnce(true);
 
-    await expect(exampleProviderProvider.isAvailable({} as any)).resolves.toBe(true);
+    await expect(exampleProviderProvider.isAvailable({} as QuotaProviderContext)).resolves.toBe(
+      true,
+    );
   });
 });

@@ -167,23 +167,50 @@ describe("minimax-coding-plan provider", () => {
   });
 
   it("keeps a valid inactive duplicate-label database credential when the active row is invalid", async () => {
-    const { getMiniMaxAuthDiagnostics, resolveMiniMaxAuth } = await import("../src/lib/minimax-auth.js");
+    const { getMiniMaxAuthDiagnostics, resolveMiniMaxAuth } = await import(
+      "../src/lib/minimax-auth.js"
+    );
     const { readCredentialRows } = await import("../src/lib/opencode-auth.js");
-    (getMiniMaxAuthDiagnostics as any).mockResolvedValueOnce({ state: "invalid", source: "opencode.db", checkedPaths: [], credentialDatabasePaths: [] });
+    (getMiniMaxAuthDiagnostics as any).mockResolvedValueOnce({
+      state: "invalid",
+      source: "opencode.db",
+      checkedPaths: [],
+      credentialDatabasePaths: [],
+    });
     mockMiniMaxAuthInvalid("empty key");
     (readCredentialRows as any).mockResolvedValueOnce([
-      { id: "bad", integrationId: "minimax-coding-plan", label: "shared", active: true, value: { key: "" } },
-      { id: "good", integrationId: "minimax-coding-plan", label: "shared", active: false, value: { key: "ok" } },
+      {
+        id: "bad",
+        integrationId: "minimax-coding-plan",
+        label: "shared",
+        active: true,
+        value: { key: "" },
+      },
+      {
+        id: "good",
+        integrationId: "minimax-coding-plan",
+        label: "shared",
+        active: false,
+        value: { key: "ok" },
+      },
     ]);
     (resolveMiniMaxAuth as any).mockImplementation((auth: any) =>
-      auth["minimax-coding-plan"].key ? { state: "configured", apiKey: "row-key", endpoint: "international" } : { state: "invalid", error: "empty key" },
+      auth["minimax-coding-plan"].key
+        ? { state: "configured", apiKey: "row-key", endpoint: "international" }
+        : { state: "invalid", error: "empty key" },
     );
     mockMiniMaxHttpSuccess([createCodingPlanModel()]);
 
     const out = await runProviderFetch();
-    expect(out.errors).toContainEqual({ label: "[MiniMax Coding Plan shared]*", message: "empty key" });
+    expect(out.errors).toContainEqual({
+      label: "[MiniMax Coding Plan shared]*",
+      message: "empty key",
+    });
     expect(out.entries).toContainEqual(
-      expect.objectContaining({ group: "[MiniMax Coding Plan shared 2]", accounting: expect.objectContaining({ sourceId: "good" }) }),
+      expect.objectContaining({
+        group: "[MiniMax Coding Plan shared 2]",
+        accounting: expect.objectContaining({ sourceId: "good" }),
+      }),
     );
     expect(out.entries).not.toHaveLength(0);
   });

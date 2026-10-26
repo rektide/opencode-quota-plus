@@ -1,7 +1,7 @@
-import { existsSync } from "fs";
-import { readFile } from "fs/promises";
-import { homedir, platform } from "os";
-import { join } from "path";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { homedir, platform } from "node:os";
+import { join } from "node:path";
 import { CURSOR_LEGACY_PROVIDER_ID } from "./cursor-pricing.js";
 import { parseJsonOrJsonc } from "./jsonc.js";
 import { getAuthPaths } from "./opencode-auth.js";
